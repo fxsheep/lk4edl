@@ -1386,13 +1386,16 @@ int boot_linux_from_flash(void)
 	unsigned kernel_actual;
 	unsigned ramdisk_actual;
 	unsigned imagesize_actual;
-	unsigned second_actual;
+	unsigned second_actual = 0;
 
 #if DEVICE_TREE
 	struct dt_table *table;
 	struct dt_entry dt_entry;
+	unsigned dt_table_offset;
 	uint32_t dt_actual;
 	uint32_t dt_hdr_size;
+	unsigned int dtb_size = 0;
+	unsigned char *best_match_dt_addr = NULL;
 #endif
 
 	if (target_is_emmc_boot()) {
@@ -1535,14 +1538,33 @@ int boot_linux_from_flash(void)
 		memmove((void*) hdr->kernel_addr, (char*) (image_addr + page_size), hdr->kernel_size);
 		memmove((void*) hdr->ramdisk_addr, (char*) (image_addr + page_size + kernel_actual), hdr->ramdisk_size);
 #if DEVICE_TREE
-		/* Validate and Read device device tree in the "tags_add */
-		if (check_aboot_addr_range_overlap(hdr->tags_addr, dt_entry.size))
-		{
-			dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
-			return -1;
-		}
+		if(hdr->dt_size != 0) {
 
-		memmove((void*) hdr->tags_addr, (char *)(image_addr + page_size + kernel_actual + ramdisk_actual), hdr->dt_size);
+			dt_table_offset = ((uint32_t)image_addr + page_size + kernel_actual + ramdisk_actual + second_actual);
+
+			table = (struct dt_table*) dt_table_offset;
+
+			if (dev_tree_validate(table, hdr->page_size, &dt_hdr_size) != 0){
+				dprintf(CRITICAL, "ERROR: Cannot validate Device Tree Table \n");
+				return -1;
+			}
+
+			/* Find index of device tree within device tree table */
+			if(dev_tree_get_entry_info(table, &dt_entry) != 0){
+				dprintf(CRITICAL, "ERROR: Getting device tree address failed\n");
+				return -1;
+			}
+
+			/* Validate and Read device device tree in the "tags_add */
+			if (check_aboot_addr_range_overlap(hdr->tags_addr, dt_entry.size)){
+				dprintf(CRITICAL, "Device tree addresses overlap with aboot addresses.\n");
+				return -1;
+			}
+
+			best_match_dt_addr = (unsigned char *)table + dt_entry.offset;
+			dtb_size = dt_entry.size;
+			memmove((void *)hdr->tags_addr, (char *)best_match_dt_addr, dtb_size);
+		}
 #endif
 
 		/* Make sure everything from scratch address is read before next step!*/
@@ -2165,17 +2187,22 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	unsigned int kernel_size = 0;
 	unsigned int scratch_offset = 0;
 
+#if FBCON_DISPLAY_MSG
+	/* Exit keys' detection thread firstly */
+	exit_menu_keys_detection();
+#endif
+
 #if VERIFIED_BOOT
 	if(target_build_variant_user() && !device.is_unlocked)
 	{
 		fastboot_fail("unlock device to use this command");
-		return;
+		goto boot_failed;
 	}
 #endif
 
 	if (sz < sizeof(hdr)) {
 		fastboot_fail("invalid bootimage header");
-		return;
+		goto boot_failed;
 	}
 
 	hdr = (struct boot_img_hdr *)data;
@@ -2204,7 +2231,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	/* sz should have atleast raw boot image */
 	if (image_actual > sz) {
 		fastboot_fail("bootimage: incomplete or not signed");
-		return;
+		goto boot_failed;
 	}
 
 	// Initialize boot state before trying to verify boot.img
@@ -2216,7 +2243,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	if ((target_get_max_flash_size() - (image_actual - sig_actual)) < page_size)
 	{
 		fastboot_fail("booimage: size is greater than boot image buffer can hold");
-		return;
+		goto boot_failed;
 	}
 #endif
 
@@ -2244,7 +2271,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	mdtp_activated(&is_mdtp_activated);
 	if(is_mdtp_activated){
 		dprintf(CRITICAL, "fastboot boot command is not available.\n");
-		return;
+		goto boot_failed;
 	}
 #endif /* MDTP_SUPPORT */
 
@@ -2302,7 +2329,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		check_aboot_addr_range_overlap(hdr->ramdisk_addr, ramdisk_actual))
 	{
 		dprintf(CRITICAL, "kernel/ramdisk addresses overlap with aboot addresses.\n");
-		return;
+		goto boot_failed;
 	}
 
 #if DEVICE_TREE
@@ -2315,7 +2342,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	if (check_aboot_addr_range_overlap(hdr->tags_addr, MAX_TAGS_SIZE))
 	{
 		dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
-		return;
+		goto boot_failed;
 	}
 #endif
 
@@ -2327,7 +2354,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	if (check_aboot_addr_range_overlap(hdr->tags_addr, kernel_actual))
 	{
 		dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
-		return;
+		goto boot_failed;
 	}
 
 	/*
@@ -2343,7 +2370,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 					(void *)hdr->tags_addr);
 		if (!dtb) {
 			fastboot_fail("dtb not found");
-			return;
+			goto boot_failed;
 		}
 	}
 #endif
@@ -2354,6 +2381,15 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	boot_linux((void*) hdr->kernel_addr, (void*) hdr->tags_addr,
 		   (const char*) hdr->cmdline, board_machtype(),
 		   (void*) hdr->ramdisk_addr, hdr->ramdisk_size);
+
+	/* fastboot already stop, it's no need to show fastboot menu */
+	return;
+boot_failed:
+#if FBCON_DISPLAY_MSG
+	/* revert to fastboot menu if boot failed */
+	display_fastboot_menu();
+#endif
+	return;
 }
 
 void cmd_erase_nand(const char *arg, void *data, unsigned sz)
@@ -2521,7 +2557,7 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 					fastboot_fail("unlock device to flash keystore");
 					return;
 				}
-				if(!boot_verify_validate_keystore((unsigned char *)data))
+				if(!boot_verify_validate_keystore((unsigned char *)data,sz))
 				{
 					fastboot_fail("image is not a keystore file");
 					return;
