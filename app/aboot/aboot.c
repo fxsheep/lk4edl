@@ -1304,9 +1304,27 @@ int boot_linux_from_mmc(void)
 			return -1;
 		}
 
+		/* Its Error if, dt_hdr_size (table->num_entries * dt_entry size + Dev_Tree Header)
+		goes beyound hdr->dt_size*/
+		if (dt_hdr_size > ROUND_TO_PAGE(hdr->dt_size,hdr->page_size)) {
+			dprintf(CRITICAL, "ERROR: Invalid Device Tree size \n");
+			return -1;
+		}
+
 		/* Find index of device tree within device tree table */
 		if(dev_tree_get_entry_info(table, &dt_entry) != 0){
 			dprintf(CRITICAL, "ERROR: Getting device tree address failed\n");
+			return -1;
+		}
+
+		if(dt_entry.offset > (UINT_MAX - dt_entry.size)) {
+			dprintf(CRITICAL, "ERROR: Device tree contents are Invalid\n");
+			return -1;
+		}
+
+		/* Ensure we are not overshooting dt_size with the dt_entry selected */
+		if ((dt_entry.offset + dt_entry.size) > hdr->dt_size) {
+			dprintf(CRITICAL, "ERROR: Device tree contents are Invalid\n");
 			return -1;
 		}
 
@@ -1625,6 +1643,13 @@ int boot_linux_from_flash(void)
 
 			if (dev_tree_validate(table, hdr->page_size, &dt_hdr_size) != 0) {
 				dprintf(CRITICAL, "ERROR: Cannot validate Device Tree Table \n");
+				return -1;
+			}
+
+			/* Its Error if, dt_hdr_size (table->num_entries * dt_entry size + Dev_Tree Header)
+			goes beyound hdr->dt_size*/
+			if (dt_hdr_size > ROUND_TO_PAGE(hdr->dt_size,hdr->page_size)) {
+				dprintf(CRITICAL, "ERROR: Invalid Device Tree size \n");
 				return -1;
 			}
 
@@ -2121,6 +2146,14 @@ int copy_dtb(uint8_t *boot_image_start, unsigned int scratch_offset)
 			dprintf(CRITICAL, "ERROR: Cannot validate Device Tree Table \n");
 			return -1;
 		}
+
+		/* Its Error if, dt_hdr_size (table->num_entries * dt_entry size + Dev_Tree Header)
+		goes beyound hdr->dt_size*/
+		if (dt_hdr_size > ROUND_TO_PAGE(hdr->dt_size,hdr->page_size)) {
+			dprintf(CRITICAL, "ERROR: Invalid Device Tree size \n");
+			return -1;
+		}
+
 		/* Find index of device tree within device tree table */
 		if(dev_tree_get_entry_info(table, &dt_entry) != 0){
 			dprintf(CRITICAL, "ERROR: Getting device tree address failed\n");
@@ -2173,7 +2206,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	unsigned ramdisk_actual;
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
-	uint32_t sig_actual = SIGNATURE_SIZE;
+	uint32_t sig_actual = 0;
 	struct boot_img_hdr *hdr = NULL;
 	struct kernel64_hdr *kptr = NULL;
 	char *ptr = ((char*) data);
@@ -2225,8 +2258,12 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	image_actual = ADD_OF(image_actual, ramdisk_actual);
 	image_actual = ADD_OF(image_actual, dt_actual);
 
-	if (target_use_signed_kernel() && (!device.is_unlocked))
+	if (target_use_signed_kernel() && (!device.is_unlocked)) {
+		/* Calculate the signature length from boot image */
+		sig_actual = read_der_message_length(
+				(unsigned char*)(data + image_actual),sz);
 		image_actual = ADD_OF(image_actual, sig_actual);
+	}
 
 	/* sz should have atleast raw boot image */
 	if (image_actual > sz) {
@@ -2655,7 +2692,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 	uint32_t i;
 	uint8_t lun = 0;
 	/*End of the sparse image address*/
-	uint32_t data_end = (uint32_t)data + sz;
+	uintptr_t data_end = (uintptr_t)data + sz;
 
 	index = partition_get_index(arg);
 	ptn = partition_get_offset(index);
@@ -2684,7 +2721,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 
 	data += sizeof(sparse_header_t);
 
-	if (data_end < (uint32_t)data) {
+	if (data_end < (uintptr_t)data) {
 		fastboot_fail("buffer overreads occured due to invalid sparse header");
 		return;
 	}
@@ -2717,7 +2754,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 		chunk_header = (chunk_header_t *) data;
 		data += sizeof(chunk_header_t);
 
-		if (data_end < (uint32_t)data) {
+		if (data_end < (uintptr_t)data) {
 			fastboot_fail("buffer overreads occured due to invalid sparse header");
 			return;
 		}
@@ -2759,7 +2796,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 				return;
 			}
 
-			if (data_end < (uint32_t)data + chunk_data_sz) {
+			if (data_end < (uintptr_t)data + chunk_data_sz) {
 				fastboot_fail("buffer overreads occured due to invalid sparse header");
 				return;
 			}
@@ -2797,7 +2834,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 				return;
 			}
 
-			if (data_end < (uint32_t)data + sizeof(uint32_t)) {
+			if (data_end < (uintptr_t)data + sizeof(uint32_t)) {
 				fastboot_fail("buffer overreads occured due to invalid sparse header");
 				return;
 			}
@@ -2852,12 +2889,12 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 				return;
 			}
 			total_blocks += chunk_header->chunk_sz;
-			if ((uint32_t)data > UINT_MAX - chunk_data_sz) {
+			if ((uintptr_t)data > UINT_MAX - chunk_data_sz) {
 				fastboot_fail("integer overflow occured");
 				return;
 			}
 			data += (uint32_t)chunk_data_sz;
-			if (data_end < (uint32_t)data) {
+			if (data_end < (uintptr_t)data) {
 				fastboot_fail("buffer overreads occured due to invalid sparse header");
 				return;
 			}
