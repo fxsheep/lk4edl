@@ -1148,6 +1148,12 @@ int boot_linux_from_mmc(void)
 			(!boot_into_recovery ? "boot" : "recovery"),imagesize_actual);
 	bs_set_timestamp(BS_KERNEL_LOAD_START);
 
+	if ((target_get_max_flash_size() - page_size) < imagesize_actual)
+	{
+		dprintf(CRITICAL, "booimage  size is greater than DDR can hold\n");
+		return -1;
+	}
+
 	/* Read image without signature */
 	if (mmc_read(ptn + offset, (void *)image_addr, imagesize_actual))
 	{
@@ -2838,6 +2844,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 
 			if (data_end < (uintptr_t)data + sizeof(uint32_t)) {
 				fastboot_fail("buffer overreads occured due to invalid sparse header");
+				free(fill_buf);
 				return;
 			}
 			fill_val = *(uint32_t *)data;
@@ -2861,6 +2868,7 @@ void cmd_flash_mmc_sparse_img(const char *arg, void *data, unsigned sz)
 				if ((uint64_t)total_blocks * (uint64_t)sparse_header->blk_sz + sparse_header->blk_sz > size)
 				{
 					fastboot_fail("Chunk data size for fill type exceeds partition size");
+					free(fill_buf);
 					return;
 				}
 
