@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2106, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,10 +41,14 @@
  */
 static char dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
 		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
-static char dsc_rc_range_min_qp[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
+static char dsc_rc_range_min_qp_1_1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
 				5, 5, 7, 13};
-static char dsc_rc_range_max_qp[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
+static char dsc_rc_range_min_qp_1_1_scr1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
+				5, 5, 9, 12};
+static char dsc_rc_range_max_qp_1_1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
 			 12, 13, 13, 15};
+static char dsc_rc_range_max_qp_1_1_scr1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 10,
+			 11, 11, 12, 13};
 static char dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
 			-8, -10, -10, -12, -12, -12, -12};
 
@@ -66,79 +70,73 @@ int mdss_dsc_to_buf(struct msm_panel_info *pinfo)
 	*bp++ = 0xc0;	/* last + long pkt */
 
 	/* pps payload */
-	*bp++ = ((dsc->major << 4) | dsc->minor);	/* pps0 */
-	*bp++ = dsc->pps_id;				/* pps1 */
+	*bp++ = (((dsc->major & 0xf) << 4) | (dsc->minor & 0xf));	/* pps0 */
+	*bp++ = (dsc->pps_id & 0xff);		/* pps1 */
 	bp++;					/* pps2, reserved */
 
 	data = dsc->line_buf_depth & 0x0f;
-	data |= (dsc->bpc << 4);
+	data |= ((dsc->bpc & 0xf) << 4);
 	*bp++ = data;				 /* pps3 */
 
 	bpp = dsc->bpp;
 	bpp <<= 4;	/* 4 fraction bits */
 	data = (bpp >> 8);
 	data &= 0x03;		/* upper two bits */
-	data |= (dsc->block_pred_enable << 5);
-	data |= (dsc->convert_rgb << 4);
-	data |= (dsc->enable_422 << 3);
-	data |= (dsc->vbr_enable << 2);
+	data |= ((dsc->block_pred_enable & 0x1) << 5);
+	data |= ((dsc->convert_rgb & 0x1) << 4);
+	data |= ((dsc->enable_422 & 0x1) << 3);
+	data |= ((dsc->vbr_enable & 0x1) << 2);
 	*bp++ = data;				/* pps4 */
 	*bp++ = bpp;				/* pps5 */
 
-	*bp++ = (dsc->pic_height >> 8);		/* pps6 */
+	*bp++ = ((dsc->pic_height >> 8) & 0xff); /* pps6 */
 	*bp++ = (dsc->pic_height & 0x0ff);	/* pps7 */
-	*bp++ = (dsc->pic_width >> 8);		/* pps8 */
+	*bp++ = ((dsc->pic_width >> 8) & 0xff);	/* pps8 */
 	*bp++ = (dsc->pic_width & 0x0ff);	/* pps9 */
 
-	*bp++ = (dsc->slice_height >> 8);	/* pps10 */
+	*bp++ = ((dsc->slice_height >> 8) & 0xff);/* pps10 */
 	*bp++ = (dsc->slice_height & 0x0ff);	/* pps11 */
-	*bp++ = (dsc->slice_width >> 8);	/* pps12 */
+	*bp++ = ((dsc->slice_width >> 8) & 0xff); /* pps12 */
 	*bp++ = (dsc->slice_width & 0x0ff);	/* pps13 */
 
-	*bp++ = (dsc->chunk_size >> 8);		/* pps14 */
+	*bp++ = ((dsc->chunk_size >> 8) & 0xff);/* pps14 */
 	*bp++ = (dsc->chunk_size & 0x0ff);	/* pps15 */
 
-	data = dsc->initial_xmit_delay >> 8;
-	data &= 0x03;
-	*bp++ = data;				/* pps16, bit 0, 1 */
-	*bp++ = dsc->initial_xmit_delay;	/* pps17 */
+	*bp++ = (dsc->initial_xmit_delay >> 8) & 0x3; /* pps16, bit 0, 1 */
+	*bp++ = (dsc->initial_xmit_delay & 0xff);/* pps17 */
 
-	*bp++ = (dsc->initial_dec_delay >> 8);	/* pps18 */
-	*bp++ = dsc->initial_dec_delay;		/* pps19 */
+	*bp++ = ((dsc->initial_dec_delay >> 8) & 0xff);	/* pps18 */
+	*bp++ = (dsc->initial_dec_delay & 0xff);/* pps19 */
 
 	bp++;					/* pps20, reserved */
 
 	*bp++ = (dsc->initial_scale_value & 0x3f); /* pps21 */
 
-	data = (dsc->scale_increment_interval >> 8);
-	data &= 0x0f;
-	*bp++ =  data;				/* pps22 */
-	*bp++ = dsc->scale_increment_interval;	/* pps23 */
+	*bp++ = ((dsc->scale_increment_interval >> 8) & 0xff); /* pps22 */
+	*bp++ = (dsc->scale_increment_interval & 0xff);	/* pps23 */
 
-	data = (dsc->scale_decrement_interval >> 8);
-	data &= 0x0f;
-	*bp++ = data;				/* pps24 */
+	*bp++ = ((dsc->scale_decrement_interval >> 8) & 0xf); /* pps24 */
 	*bp++ = (dsc->scale_decrement_interval & 0x0ff);/* pps25 */
 
 	bp++;			/* pps26, reserved */
 
 	*bp++ = (dsc->first_line_bpg_offset & 0x1f);/* pps27 */
 
-	*bp++ = (dsc->nfl_bpg_offset >> 8);	/* pps28 */
+	*bp++ = ((dsc->nfl_bpg_offset >> 8) & 0xff);/* pps28 */
 	*bp++ = (dsc->nfl_bpg_offset & 0x0ff);	/* pps29 */
-	*bp++ = (dsc->slice_bpg_offset >> 8);	/* pps30 */
+	*bp++ = ((dsc->slice_bpg_offset >> 8) & 0xff);/* pps30 */
 	*bp++ = (dsc->slice_bpg_offset & 0x0ff);/* pps31 */
 
-	*bp++ = (dsc->initial_offset >> 8);	/* pps32 */
+	*bp++ = ((dsc->initial_offset >> 8) & 0xff);/* pps32 */
 	*bp++ = (dsc->initial_offset & 0x0ff);	/* pps33 */
 
-	*bp++ = (dsc->final_offset >> 8);	/* pps34 */
+	*bp++ = ((dsc->final_offset >> 8) & 0xff);/* pps34 */
 	*bp++ = (dsc->final_offset & 0x0ff);	/* pps35 */
 
 	*bp++ = (dsc->min_qp_flatness & 0x1f);	/* pps36 */
 	*bp++ = (dsc->max_qp_flatness & 0x1f);	/* pps37 */
 
-	*bp++ = (dsc->rc_model_size >> 8);	/* pps38 */
+	*bp++ = ((dsc->rc_model_size >> 8) & 0xff);/* pps38 */
 	*bp++ = (dsc->rc_model_size & 0x0ff);	/* pps39 */
 
 	*bp++ = (dsc->edge_factor & 0x0f);	/* pps40 */
@@ -146,12 +144,12 @@ int mdss_dsc_to_buf(struct msm_panel_info *pinfo)
 	*bp++ = (dsc->quant_incr_limit0 & 0x1f);	/* pps41 */
 	*bp++ = (dsc->quant_incr_limit1 & 0x1f);	/* pps42 */
 
-	data = (dsc->tgt_offset_hi << 4);
+	data = ((dsc->tgt_offset_hi & 0xf) << 4);
 	data |= (dsc->tgt_offset_lo & 0x0f);
 	*bp++ = data;				/* pps43 */
 
 	for (i = 0; i < 14; i++)
-		*bp++ = dsc->buf_thresh[i];	/* pps44 - pps57 */
+		*bp++ = (dsc->buf_thresh[i] & 0xff);/* pps44 - pps57 */
 
 	for (i = 0; i < 15; i++) {		/* pps58 - pps87 */
 		data = (dsc->range_min_qp[i] & 0x1f); /* 5 bits */
@@ -196,10 +194,16 @@ void mdss_dsc_parameters_calc(struct msm_panel_info *pinfo)
 	int data;
 	int final_value, final_scale;
 	int slice_per_line, bytes_in_slice, total_bytes;
+	int version;
 
 	dsc = &pinfo->dsc;
+	version = (((dsc->major & 0xf) << 4) | (dsc->minor & 0xf));
+
 	dsc->rc_model_size = 8192;	/* rate_buffer_size */
-	dsc->first_line_bpg_offset = 12;
+	if (version == 0x11 && dsc->scr_rev == 0x1)
+		dsc->first_line_bpg_offset = 15;
+	else
+		dsc->first_line_bpg_offset = 12;
 	dsc->min_qp_flatness = 3;
 	dsc->max_qp_flatness = 12;
 	dsc->line_buf_depth = 9;
@@ -211,8 +215,13 @@ void mdss_dsc_parameters_calc(struct msm_panel_info *pinfo)
 	dsc->tgt_offset_lo = 3;
 
 	dsc->buf_thresh = dsc_rc_buf_thresh;
-	dsc->range_min_qp = dsc_rc_range_min_qp;
-	dsc->range_max_qp = dsc_rc_range_max_qp;
+	if (version == 0x11 && dsc->scr_rev == 0x1) {
+		dsc->range_min_qp = dsc_rc_range_min_qp_1_1_scr1;
+		dsc->range_max_qp = dsc_rc_range_max_qp_1_1_scr1;
+	} else {
+		dsc->range_min_qp = dsc_rc_range_min_qp_1_1;
+		dsc->range_max_qp = dsc_rc_range_max_qp_1_1;
+	}
 	dsc->range_bpg_offset = dsc_rc_range_bpg_offset;
 
 	dsc->pic_width = pinfo->xres;

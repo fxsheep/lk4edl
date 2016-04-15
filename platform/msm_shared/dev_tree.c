@@ -58,7 +58,7 @@ extern uint32_t target_dev_tree_mem(void *fdt, uint32_t memory_node_offset);
 /* TODO: This function needs to be moved to target layer to check violations
  * against all the other regions as well.
  */
-extern int check_aboot_addr_range_overlap(uint32_t start, uint32_t size);
+extern int check_aboot_addr_range_overlap(uintptr_t start, uint32_t size);
 
 int fdt_check_header_ext(const void *fdt)
 {
@@ -486,11 +486,6 @@ void *dev_tree_appended(void *kernel, uint32_t kernel_size, uint32_t dtb_offset,
 			break;
 		dtb_size = fdt_totalsize(&dtb_hdr);
 
-		if (check_aboot_addr_range_overlap((uint32_t)tags, dtb_size)) {
-			dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
-			return NULL;
-		}
-
 		dev_tree_compatible(dtb, dtb_size, dt_entry_queue);
 
 		/* goto the next device tree if any */
@@ -521,6 +516,10 @@ void *dev_tree_appended(void *kernel, uint32_t kernel_size, uint32_t dtb_offset,
 	}
 
 	if(bestmatch_tag) {
+		if (check_aboot_addr_range_overlap((uintptr_t)tags, bestmatch_tag_size)) {
+			dprintf(CRITICAL, "Tags addresses overlap with aboot addresses.\n");
+			return NULL;
+		}
 		memcpy(tags, bestmatch_tag, bestmatch_tag_size);
 		/* clear out the old DTB magic so kernel doesn't find it */
 		*((uint32_t *)(kernel + app_dtb_offset)) = 0;
