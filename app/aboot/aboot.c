@@ -2313,7 +2313,12 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 		}
 	}
 
-	mdtp_activated(&is_mdtp_activated);
+	/* If mdtp state cannot be validate, block fastboot boot*/
+	if(mdtp_activated(&is_mdtp_activated)){
+		dprintf(CRITICAL, "mdtp_activated cannot validate state.\n");
+		dprintf(CRITICAL, "Can not proceed with fastboot boot command.\n");
+		goto boot_failed;
+	}
 	if(is_mdtp_activated){
 		dprintf(CRITICAL, "fastboot boot command is not available.\n");
 		goto boot_failed;
@@ -2665,6 +2670,26 @@ void cmd_flash_meta_img(const char *arg, void *data, unsigned sz)
 		fastboot_fail("Cannot  flash: image header corrupt");
 		return;
 	}
+
+	/* If device is locked:
+	 * Forbid to flash image to avoid the device to bypass the image
+	 * which with "any" name other than bootloader. Because it maybe
+	 * a meta package of all partitions.
+	 */
+#if VERIFIED_BOOT
+	if (target_build_variant_user()) {
+		if (!device.is_unlocked) {
+			fastboot_fail("Device is locked, meta image flashing is not allowed");
+			return;
+		}
+#if !VBOOT_MOTA
+		if(!device.is_unlock_critical) {
+			fastboot_fail("Device is critical locked, Meta image flashing is not allowed");
+			return;
+		}
+#endif
+	}
+#endif
 
 	meta_header = (meta_header_t*) data;
 	if( data_end < ((uintptr_t)data + meta_header->img_hdr_sz))
