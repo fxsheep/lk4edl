@@ -447,6 +447,14 @@ unsigned char *update_cmdline(const char * cmdline)
 		cmdline_len += strlen(warmboot_cmdline);
 	}
 
+#if TARGET_CMDLINE_SUPPORT
+	char *target_cmdline_buf = malloc(TARGET_MAX_CMDLNBUF);
+	int target_cmd_line_len;
+	ASSERT(target_cmdline_buf);
+	target_cmd_line_len = target_update_cmdline(target_cmdline_buf);
+	cmdline_len += target_cmd_line_len;
+#endif
+
 	if (cmdline_len > 0) {
 		const char *src;
 		unsigned char *dst;
@@ -626,6 +634,16 @@ unsigned char *update_cmdline(const char * cmdline)
 			while ((*dst++ = *src++));
 			free(target_boot_params);
 		}
+
+#if TARGET_CMDLINE_SUPPORT
+		if (target_cmdline_buf && target_cmd_line_len)
+		{
+			if (have_cmdline) --dst;
+			src = target_cmdline_buf;
+			while((*dst++ = *src++));
+			free(target_cmdline_buf);
+		}
+#endif
 	}
 
 
@@ -708,7 +726,7 @@ unsigned *atag_end(unsigned *ptr)
 void generate_atags(unsigned *ptr, const char *cmdline,
                     void *ramdisk, unsigned ramdisk_size)
 {
-
+	unsigned *orig_ptr = ptr;
 	ptr = atag_core(ptr);
 	ptr = atag_ramdisk(ptr, ramdisk, ramdisk_size);
 	ptr = target_atag_mem(ptr);
@@ -718,8 +736,18 @@ void generate_atags(unsigned *ptr, const char *cmdline,
 		ptr = atag_ptable(&ptr);
 	}
 
-	ptr = atag_cmdline(ptr, cmdline);
-	ptr = atag_end(ptr);
+	/*
+	 * Atags size filled till + cmdline size + 1 unsigned for 4-byte boundary + 4 unsigned
+	 * for atag identifier in atag_cmdline and atag_end should be with in MAX_TAGS_SIZE bytes
+	 */
+	if (((ptr - orig_ptr) + strlen(cmdline) + 5 * sizeof(unsigned)) <  MAX_TAGS_SIZE) {
+		ptr = atag_cmdline(ptr, cmdline);
+		ptr = atag_end(ptr);
+	}
+	else {
+		dprintf(CRITICAL,"Crossing ATAGs Max size allowed\n");
+		ASSERT(0);
+	}
 }
 
 typedef void entry_func_ptr(unsigned, unsigned, unsigned*);
