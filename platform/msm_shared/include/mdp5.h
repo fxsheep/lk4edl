@@ -235,6 +235,15 @@
 #define MDP_REG_PP_1_AUTOREFRESH_CONFIG		REG_MDP(0x71830)
 #define MDP_REG_PP_SLAVE_AUTOREFRESH_CONFIG	REG_MDP(0x73030)
 
+/* Registers for programming the CDM hardware in bypass mode. */
+#define CDM_HDMI_PACK_OP_MODE 		REG_MDP(0x7A400)
+#define MDP_OUT_CTL_0 			REG_MDP(0x01410)
+#define MDP_INTF_3_INTF_CONFIG 		REG_MDP(0x6C804)
+#define CDM_CDWN2_OUT_SIZE 		REG_MDP(0x7A330)
+#define CDM_CDWN2_OP_MODE 		REG_MDP(0x7A300)
+#define CDM_CDWN2_CLAMP_OUT 		REG_MDP(0x7A304)
+#define CDM_CSC_10_OP_MODE 		REG_MDP(0x7A200)
+
 void mdp_set_revision(int rev);
 int mdp_get_revision();
 int mdp_dsi_video_config(struct msm_panel_info *pinfo, struct fbcon_config *fb);
@@ -256,9 +265,11 @@ int target_edp_panel_enable(void);
 int target_edp_panel_disable(void);
 int target_edp_bl_ctrl(int enable);
 int mdss_hdmi_init(void);
+void mdss_hdmi_display_init(uint32_t rev, void *base);
 int mdss_hdmi_on(struct msm_panel_info *pinfo);
 int mdss_hdmi_config(struct msm_panel_info *pinfo, struct fbcon_config *fb);
 void mdss_hdmi_get_vic(char *buf);
+void hdmi_phy_init(void);
 int msm_display_off();
 void display_shutdown(void);
 
