@@ -143,6 +143,14 @@ struct fastboot_cmd_desc {
 
 #define ADD_OF(a, b) (UINT_MAX - b > a) ? (a + b) : UINT_MAX
 
+//Size of the header that is used in case the boot image has
+//a uncompressed kernel + appended dtb
+#define PATCHED_KERNEL_HEADER_SIZE 20
+
+//String used to determine if the boot image has
+//a uncompressed kernel + appended dtb
+#define PATCHED_KERNEL_MAGIC "UNCOMPRESSED_IMG"
+
 #if USE_BOOTDEV_CMDLINE
 static const char *emmc_cmdline = " androidboot.bootdevice=";
 #else
@@ -168,6 +176,7 @@ static const char *baseband_dsda    = " androidboot.baseband=dsda";
 static const char *baseband_dsda2   = " androidboot.baseband=dsda2";
 static const char *baseband_sglte2  = " androidboot.baseband=sglte2";
 static const char *warmboot_cmdline = " qpnp-power-on.warm_boot=1";
+static const char *baseband_apq_nowgr   = " androidboot.baseband=baseband_apq_nowgr";
 
 #if VERIFIED_BOOT
 #if !VBOOT_MOTA
@@ -434,6 +443,9 @@ unsigned char *update_cmdline(const char * cmdline)
 		case BASEBAND_DSDA2:
 			cmdline_len += strlen(baseband_dsda2);
 			break;
+		case BASEBAND_APQ_NOWGR:
+			cmdline_len += strlen(baseband_apq_nowgr);
+			break;
 	}
 
 	if (cmdline) {
@@ -620,6 +632,11 @@ unsigned char *update_cmdline(const char * cmdline)
 
 			case BASEBAND_DSDA2:
 				src = baseband_dsda2;
+				if (have_cmdline) --dst;
+				while ((*dst++ = *src++));
+				break;
+			case BASEBAND_APQ_NOWGR:
+				src = baseband_apq_nowgr;
 				if (have_cmdline) --dst;
 				while ((*dst++ = *src++));
 				break;
@@ -1069,8 +1086,8 @@ int boot_linux_from_mmc(void)
 	uint32_t dtb_offset = 0;
 	unsigned char *kernel_start_addr = NULL;
 	unsigned int kernel_size = 0;
+	unsigned int patched_kernel_hdr_size = 0;
 	int rc;
-
 #if DEVICE_TREE
 	struct dt_table *table;
 	struct dt_entry dt_entry;
@@ -1295,9 +1312,30 @@ int boot_linux_from_mmc(void)
 		kernel_start_addr = out_addr;
 		kernel_size = out_len;
 	} else {
-		kptr = (struct kernel64_hdr *)(image_addr + page_size);
-		kernel_start_addr = (unsigned char *)(image_addr + page_size);
-		kernel_size = hdr->kernel_size;
+		dprintf(INFO, "Uncpmpressed kernel in use\n");
+		if (!strncmp((char*)(image_addr + page_size),
+					PATCHED_KERNEL_MAGIC,
+					sizeof(PATCHED_KERNEL_MAGIC) - 1)) {
+			dprintf(INFO, "Patched kernel detected\n");
+			kptr = (struct kernel64_hdr *)(image_addr + page_size +
+					PATCHED_KERNEL_HEADER_SIZE);
+			//The size of the kernel is stored at start of kernel image + 16
+			//The dtb would start just after the kernel
+			dtb_offset = *((uint32_t*)((unsigned char*)
+						(image_addr + page_size +
+						 sizeof(PATCHED_KERNEL_MAGIC) -
+						 1)));
+			//The actual kernel starts after the 20 byte header.
+			kernel_start_addr = (unsigned char*)(image_addr +
+					page_size + PATCHED_KERNEL_HEADER_SIZE);
+			kernel_size = hdr->kernel_size;
+			patched_kernel_hdr_size = PATCHED_KERNEL_HEADER_SIZE;
+		} else {
+			dprintf(INFO, "Kernel image not patched..Unable to locate dt offset\n");
+			kptr = (struct kernel64_hdr *)(image_addr + page_size);
+			kernel_start_addr = (unsigned char *)(image_addr + page_size);
+			kernel_size = hdr->kernel_size;
+		}
 	}
 
 	/*
@@ -1410,9 +1448,11 @@ int boot_linux_from_mmc(void)
 		 * Else update with the atags address in the kernel header
 		 */
 		void *dtb;
-		dtb = dev_tree_appended((void*)(image_addr + page_size),
-					hdr->kernel_size, dtb_offset,
-					(void *)hdr->tags_addr);
+		dtb = dev_tree_appended(
+				(void*)(image_addr + page_size +
+					patched_kernel_hdr_size),
+				hdr->kernel_size, dtb_offset,
+				(void *)hdr->tags_addr);
 		if (!dtb) {
 			dprintf(CRITICAL, "ERROR: Appended Device Tree Blob not found\n");
 			return -1;
@@ -3805,7 +3845,6 @@ void aboot_init(const struct app_descriptor *app)
 		page_size = flash_page_size();
 		page_mask = page_size - 1;
 	}
-
 	ASSERT((MEMBASE + MEMSIZE) > MEMBASE);
 
 	read_device_info(&device);
