@@ -59,6 +59,10 @@
 #define LDOA_RES_TYPE 0x616F646C //aodl
 #define SMPS_RES_TYPE 0x61706D73 //apms
 
+#ifdef EARLY_CAMERA_SUPPORT
+#define VS_RES_TYPE  0x617376 //vsa
+#endif
+
 /* RPM clock helper macros */
 #define RPM_CLK_BUFFER_A_REQ                   0x616B6C63 //aklc
 #define RPM_KEY_PIN_CTRL_CLK_BUFFER_ENABLE_KEY 0x62636370 //pccb - clk buffer pin control

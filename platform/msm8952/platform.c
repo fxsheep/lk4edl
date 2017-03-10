@@ -41,6 +41,16 @@
 #include <platform.h>
 #include <target/display.h>
 
+#ifdef EARLY_CAMERA_SUPPORT
+enum
+{
+     APC0_CPU0 = 0x0,
+     APC0_CPU1 = 0x1,
+     APC1_CPU0 = 0x100,
+     APC1_CPU1 = 0x101,
+} cpu_aff;
+#endif
+
 #define MSM8976_SOC_V11 0x10001
 #define MSM_IOMAP_SIZE ((MSM_IOMAP_END - MSM_IOMAP_BASE)/MB)
 #define APPS_SS_SIZE   ((APPS_SS_END - APPS_SS_BASE)/MB)
@@ -289,3 +299,16 @@ uint32_t platform_is_msm8976_v_1_1()
 
 	return ret;
 }
+#if EARLYDOMAIN_SUPPORT
+/* return the cpu number for the secondary CPU to run early services on */
+int platform_get_secondary_cpu_num()
+{
+     return APC0_CPU1;
+}
+#else
+/* stub functions */
+int platform_get_secondary_cpu_num()
+{
+     return 0;
+}
+#endif /*EARLYDOMAIN_SUPPORT*/

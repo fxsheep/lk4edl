@@ -490,5 +490,91 @@
 #define APPS_WDOG_BARK_VAL_REG      0x0B017010
 #define APPS_WDOG_BITE_VAL_REG      0x0B017014
 #define APPS_WDOG_RESET_REG         0x0B017008
+
+#ifdef EARLY_CAMERA_SUPPORT
+#define MSM_MMSS_CLK_CTL_BASE       0x8C0000
+#define MMSS_MISC_AHB_CBCR          (MSM_MMSS_CLK_CTL_BASE + 0x5018)
+#ifdef MDP_CTL_2_BASE
+#undef MDP_CTL_2_BASE
+#endif
+
+#define MDP_CTL_2_BASE                          REG_MDP(0x2400)
+/* HDMI reg addresses */
+#define HDMI_BASE               0x9A0000
+#define REG_HDMI(off)           (HDMI_BASE + (off))
+
+#define HDMI_ACR_32_0           REG_HDMI(0xC4)
+#define HDMI_ACR_32_1           REG_HDMI(0xC8)
+#define HDMI_ACR_44_0           REG_HDMI(0xCC)
+#define HDMI_ACR_44_1           REG_HDMI(0xD0)
+#define HDMI_ACR_48_0           REG_HDMI(0xD4)
+#define HDMI_ACR_48_1           REG_HDMI(0xD8)
+#define HDMI_AUDIO_PKT_CTRL2    REG_HDMI(0x44)
+#define HDMI_ACR_PKT_CTRL       REG_HDMI(0x24)
+#define HDMI_INFOFRAME_CTRL0    REG_HDMI(0x2C)
+#define HDMI_INFOFRAME_CTRL1    REG_HDMI(0x30)
+#define HDMI_AUDIO_INFO0        REG_HDMI(0xE4)
+#define HDMI_AUDIO_INFO1        REG_HDMI(0xE8)
+#define HDMI_AUDIO_PKT_CTRL     REG_HDMI(0x20)
+#define HDMI_VBI_PKT_CTRL       REG_HDMI(0x28)
+#define HDMI_GEN_PKT_CTRL       REG_HDMI(0x34)
+#define HDMI_GC                 REG_HDMI(0x40)
+#define HDMI_AUDIO_CFG          REG_HDMI(0x1D0)
+
+#define HDMI_DDC_SPEED          REG_HDMI(0x220)
+#define HDMI_DDC_SETUP          REG_HDMI(0x224)
+#define HDMI_DDC_REF            REG_HDMI(0x27C)
+#define HDMI_DDC_DATA           REG_HDMI(0x238)
+#define HDMI_DDC_TRANS0         REG_HDMI(0x228)
+#define HDMI_DDC_TRANS1         REG_HDMI(0x22C)
+#define HDMI_DDC_TRANS2         REG_HDMI(0x230)
+#define HDMI_DDC_TRANS3         REG_HDMI(0x234)
+#define HDMI_DDC_CTRL           REG_HDMI(0x20C)
+#define HDMI_DDC_INT_CTRL       REG_HDMI(0x214)
+#define HDMI_DDC_SW_STATUS      REG_HDMI(0x218)
+#define HDMI_DDC_ARBITRATION    REG_HDMI(0x210)
+#define HDMI_HW_DDC_CTRL        REG_HDMI(0x4CC)
+#define HDMI_DDC_INT_CTRL0      REG_HDMI(0x430)
+#define HDMI_DDC_INT_CTRL1      REG_HDMI(0x434)
+#define HDMI_DDC_INT_CTRL2      REG_HDMI(0x438)
+#define HDMI_DDC_INT_CTRL3      REG_HDMI(0x43C)
+#define HDMI_DDC_INT_CTRL4      REG_HDMI(0x440)
+#define HDMI_DDC_INT_CTRL5      REG_HDMI(0x444)
+#define HDMI_DDC_HW_STATUS      REG_HDMI(0x21C)
+#define HDMI_SCRAMBLER_STATUS_DDC_CTRL   REG_HDMI(0x464)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL    REG_HDMI(0x468)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2   REG_HDMI(0x46C)
+#define HDMI_SCRAMBLER_STATUS_DDC_STATUS        REG_HDMI(0x470)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS  REG_HDMI(0x474)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS2 REG_HDMI(0x478)
+
+#define HDMI_USEC_REFTIMER      REG_HDMI(0x208)
+#define HDMI_CTRL               REG_HDMI(0x000)
+#define HDMI_VERSION            REG_HDMI(0x2E4)
+#define HDMI_HPD_INT_STATUS     REG_HDMI(0x250)
+#define HDMI_HPD_INT_CTRL       REG_HDMI(0x254)
+#define HDMI_HPD_CTRL           REG_HDMI(0x258)
+#define HDMI_PHY_CTRL           REG_HDMI(0x2D4)
+#define HDMI_TOTAL              REG_HDMI(0x2C0)
+#define HDMI_ACTIVE_H           REG_HDMI(0x2B4)
+#define HDMI_ACTIVE_V           REG_HDMI(0x2B8)
+#define HDMI_V_TOTAL_F2         REG_HDMI(0x2C4)
+#define HDMI_ACTIVE_V_F2        REG_HDMI(0x2BC)
+#define HDMI_FRAME_CTRL         REG_HDMI(0x2C8)
+
+#define HDMI_AVI_INFO0          REG_HDMI(0x06C)
+#define HDMI_AVI_INFO1          REG_HDMI(0x070)
+#define HDMI_AVI_INFO2          REG_HDMI(0x074)
+#define HDMI_AVI_INFO3          REG_HDMI(0x078)
+
+#define LPASS_LPAIF_RDDMA_CTL0       0x0910D000
+#define LPASS_LPAIF_RDDMA_BASE0      0x0910D004
+#define LPASS_LPAIF_RDDMA_BUFF_LEN0  0x0910D008
+#define LPASS_LPAIF_RDDMA_PER_LEN0   0x0910D010
+#define LPASS_LPAIF_DEBUG_CTL        0x0910000C
+#endif
+
+
+
 #define APPS_WDOG_CTL_REG           0x0B017004
 #endif

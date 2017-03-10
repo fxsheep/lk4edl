@@ -193,3 +193,13 @@ warm_boot_tag:
 abort_stack:
 	.skip 1024
 abort_stack_top:
+
+#if EARLYDOMAIN_SUPPORT
+/* secondary cpu stack */
+.bss
+
+.globl cpu_stack, cpu_stack_top
+cpu_stack:
+	.skip 8192
+cpu_stack_top:
+#endif

@@ -109,6 +109,12 @@ static int aboot_frp_unlock(char *pname, void *data, unsigned sz);
 /* fastboot command function pointer */
 typedef void (*fastboot_cmd_fn) (const char *, void *, unsigned);
 
+#ifdef EARLY_CAMERA_SUPPORT
+#include <target/target_camera.h>
+/* turns on the secondary core */
+void enable_secondary_core();
+#endif
+
 struct fastboot_cmd_desc {
 	char * name;
 	fastboot_cmd_fn cb;
@@ -222,7 +228,11 @@ static int auth_kernel_img = 0;
 #if VBOOT_MOTA
 static device_info device = {DEVICE_MAGIC, 0, 0, 0, 0, {0}, {0},{0}};
 #else
+#ifdef EARLY_CAMERA_SUPPORT
+static device_info device = {DEVICE_MAGIC, 0, 0, 0, 0, 0, {0},{0}, {0}, 1, 0};
+#else
 static device_info device = {DEVICE_MAGIC, 0, 0, 0, 0, {0}, {0},{0}, 1};
+#endif
 #endif
 static bool is_allow_unlock = 0;
 
@@ -3912,6 +3922,17 @@ void aboot_init(const struct app_descriptor *app)
 	read_device_info(&device);
 	read_allow_oem_unlock(&device);
 
+#ifdef EARLY_CAMERA_SUPPORT
+        /* enable secondary core for early domain services */
+        if (device.early_domain_enabled) {
+                if (device.early_camera_enabled) {
+                        set_early_camera_enabled(TRUE);
+                        target_early_camera_init();
+                }
+                enable_secondary_core();
+        }
+#endif
+
 	/* Display splash screen if enabled */
 #if DISPLAY_SPLASH_SCREEN
 #if NO_ALARM_DISPLAY
@@ -3939,6 +3960,15 @@ void aboot_init(const struct app_descriptor *app)
 #endif
 #endif
 
+#ifdef EARLY_CAMERA_SUPPORT
+	while ((device.early_domain_enabled)
+		&& (TRUE == target_animated_splash_screen())
+		&& (FALSE == target_is_mmc_read_done()))
+	{
+		mdelay_optimal(10);
+	}
+#endif
+	
 	target_serialno((unsigned char *) sn_buf);
 	dprintf(SPEW,"serial number: %s\n",sn_buf);
 

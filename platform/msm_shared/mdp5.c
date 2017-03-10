@@ -41,6 +41,10 @@
 #include <scm.h>
 #include <arch/defines.h>
 
+#ifdef EARLY_CAMERA_SUPPORT
+bool multi_panel = false;
+#endif
+
 #define MDSS_MDP_MAX_PREFILL_FETCH	25
 
 int restore_secure_cfg(uint32_t id);
@@ -703,6 +707,98 @@ static void mdss_intf_fetch_start_config(struct msm_panel_info *pinfo,
 	writel_relaxed(fetch_enable, MDP_INTF_CONFIG + intf_base);
 }
 
+#ifdef EARLY_CAMERA_SUPPORT
+int mdss_layer_mixer_remove_pipe(struct msm_panel_info *pinfo) {
+	uint32_t left_staging_level, right_staging_level;
+	uint32_t left_bitmask, right_bitmask;
+
+	if (!pinfo) {
+		dprintf(CRITICAL, "Invalid input\n");
+		return ERROR;
+	}
+	if ((pinfo->type == HDMI_PANEL) && (multi_panel == true)) {
+		/* Base layer for layer mixer 2 */
+		left_staging_level = readl(MDP_CTL_2_BASE + CTL_LAYER_2);
+		right_staging_level = readl(MDP_CTL_1_BASE + CTL_LAYER_1);
+	} else if (pinfo->dest == DISPLAY_2) {
+		left_staging_level = readl(MDP_CTL_1_BASE + CTL_LAYER_1);
+		right_staging_level = readl(MDP_CTL_1_BASE + CTL_LAYER_1);
+	} else {
+		left_staging_level = readl(MDP_CTL_0_BASE + CTL_LAYER_0);
+		right_staging_level = readl(MDP_CTL_1_BASE + CTL_LAYER_1);
+	}
+	switch (pinfo->pipe_type) {
+		case MDSS_MDP_PIPE_TYPE_RGB:
+			switch (pinfo->pipe_id) {
+				case 0:
+					left_bitmask = 7 << 9;
+					right_bitmask = 7 << 12;
+					break;
+				case 1:
+					left_bitmask = 7 << 12;
+					right_bitmask = 7 << 9;
+					break;
+				case 2:
+					left_bitmask = 7 << 15;
+					right_bitmask = 7 << 12;
+					break;
+				case 3:
+				default:
+					left_bitmask = 7 << 29;
+					right_bitmask = 7 << 12;
+					break;
+			}
+			right_bitmask = ~right_bitmask;
+			left_bitmask = ~left_bitmask;
+			break;
+		case MDSS_MDP_PIPE_TYPE_VIG:
+			switch (pinfo->pipe_id) {
+				case 0:
+					left_bitmask = 7;
+					right_bitmask = 7 << 3;
+					break;
+				case 1:
+					left_bitmask = 7 << 3;
+					right_bitmask = 7;
+					break;
+				case 2:
+					left_bitmask = 7 << 6;
+					right_bitmask = 7 << 3;
+					break;
+				case 3:
+				default:
+					left_bitmask = 7 << 26;
+					right_bitmask = 7 << 3;
+					break;
+			}
+			right_bitmask = ~right_bitmask;
+			left_bitmask = ~left_bitmask;
+			break;
+		default:
+			right_bitmask = 0xFFFFFFFF;
+			left_bitmask = 0xFFFFFFFF;
+			break;
+	}
+	left_staging_level = left_staging_level & left_bitmask;
+	right_staging_level = right_staging_level & right_bitmask;
+	if ((pinfo->type == HDMI_PANEL) && (multi_panel == true))
+		writel(left_staging_level, MDP_CTL_2_BASE + CTL_LAYER_2);
+	else if (pinfo->dest == DISPLAY_2)
+		writel(left_staging_level, MDP_CTL_1_BASE + CTL_LAYER_1);
+	else
+		writel(left_staging_level, MDP_CTL_0_BASE + CTL_LAYER_0);
+
+	if (pinfo->lcdc.dual_pipe && !pinfo->lcdc.dst_split)
+		writel(right_staging_level, MDP_CTL_0_BASE + CTL_LAYER_1);
+	return 0;
+}
+
+void set_multi_panel(bool val)
+{
+	multi_panel = val;
+}
+#endif
+
 void mdss_layer_mixer_setup(struct fbcon_config *fb, struct msm_panel_info
 		*pinfo)
 {
@@ -1265,6 +1361,28 @@ int mdp_dsi_video_on(struct msm_panel_info *pinfo)
 	return NO_ERROR;
 }
 
+#ifdef EARLY_CAMERA_SUPPORT
+int mdp_dsi_video_update(struct msm_panel_info *pinfo)
+{
+	uint32_t ctl0_reg_val, ctl1_reg_val;
+
+	if (!pinfo) {
+		dprintf(CRITICAL, "Error! Invalid arg\n");
+		return ERR_INVALID_ARGS;
+	}
+	mdss_mdp_set_flush(pinfo, &ctl0_reg_val, &ctl1_reg_val);
+	if ((pinfo->dest == DISPLAY_2) && (pinfo->mipi.dual_dsi))
+		writel(ctl0_reg_val, MDP_CTL_1_BASE + CTL_FLUSH);
+	else
+		writel(ctl0_reg_val, MDP_CTL_0_BASE + CTL_FLUSH);
+
+	if (pinfo->lcdc.split_display)
+		writel(ctl1_reg_val, MDP_CTL_1_BASE + CTL_FLUSH);
+
+	return NO_ERROR;
+}
+#endif
+
 int mdp_dsi_video_off(struct msm_panel_info *pinfo)
 {
 	uint32_t timing_engine_en;
@@ -1364,6 +1482,22 @@ int mdp_edp_on(struct msm_panel_info *pinfo)
 	writel(0x01, MDP_INTF_0_TIMING_ENGINE_EN  + mdss_mdp_intf_offset());
 	return NO_ERROR;
 }
+
+#ifdef EARLY_CAMERA_SUPPORT
+int mdss_hdmi_update(struct msm_panel_info *pinfo)
+{
+	uint32_t ctl0_reg_val, ctl1_reg_val;
+
+	mdss_mdp_set_flush(pinfo, &ctl0_reg_val, &ctl1_reg_val);
+
+	if (multi_panel == true)
+		writel(0x28120, MDP_CTL_2_BASE + CTL_FLUSH);
+	else
+		writel(0x24048, MDP_CTL_0_BASE + CTL_FLUSH);
+
+	return NO_ERROR;
+}
+#endif
 
 int mdss_hdmi_on(struct msm_panel_info *pinfo)
 {

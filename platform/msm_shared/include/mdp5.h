@@ -126,6 +126,11 @@
 
 #define CTL_LAYER_0                             0x00
 #define CTL_LAYER_1                             0x04
+
+#ifdef EARLY_CAMERA_SUPPORT
+#define CTL_LAYER_2                             0x08
+#endif
+
 #define CTL_TOP                                 0x14
 #define CTL_FLUSH                               0x18
 #define CTL_START                               0x1C

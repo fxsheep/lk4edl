@@ -78,8 +78,27 @@ static struct gpio_pin lcd_mode_gpio = {
 
 #define DSI0_BASE_ADJUST -0x4000
 #define DSI0_PHY_BASE_ADJUST -0x4100
+
+#ifdef EARLY_CAMERA_SUPPORT
+struct target_display displays[NUM_TARGET_DISPLAYS];
+struct target_layer_int layers[NUM_TARGET_LAYERS];
+extern int msm_display_update(struct fbcon_config *fb, uint32_t pipe_id,
+	uint32_t pipe_type, uint32_t zorder, uint32_t width, uint32_t height, uint32_t disp_id);
+extern int msm_display_remove_pipe(uint32_t pipe_id, uint32_t pipe_type, uint32_t disp_id);
+extern struct fbcon_config* msm_display_get_fb(uint32_t disp_id);
+
+bool display_init_done = false;
+#endif
+
 #define DSI0_PHY_PLL_BASE_ADJUST -0x3900
 #define DSI0_PHY_REGULATOR_BASE_ADJUST -0x3C00
+
+#ifdef EARLY_CAMERA_SUPPORT
+bool target_display_is_init_done()
+{
+	return display_init_done;
+}
+#endif
 
 static void mdss_dsi_uniphy_pll_sw_reset_8952(uint32_t pll_base)
 {
@@ -572,6 +591,115 @@ bool target_display_panel_node(char *pbuf, uint16_t buf_size)
 	return gcdb_display_cmdline_arg(pbuf, buf_size);
 }
 
+#ifdef EARLY_CAMERA_SUPPORT
+static int target_display_populate(struct target_display *displays)
+{
+	// the display_id is following the order in targe_disp_init()
+	displays[0].display_id = 0;
+	displays[0].width = 1280;
+	displays[0].height = 720;
+	displays[0].fps = 60;
+
+	displays[1].display_id = 1;
+	displays[1].width = 1280;
+	displays[1].height = 720;
+	displays[1].fps = 60;
+
+	displays[2].display_id = 2;
+	displays[2].width = 1920;
+	displays[2].height = 1080;
+	displays[2].fps = 60;
+
+	return 0;
+}
+
+static int target_layers_populate(struct target_layer_int *layers)
+{
+	int i = 0;
+
+	for (i = 0; i < NUM_RGB_PIPES; i++) {
+		layers[RGB_PIPE_START + i].layer_id = i;
+		layers[RGB_PIPE_START + i].layer_type = RGB_TYPE;
+		layers[RGB_PIPE_START + i].assigned = 0;
+	}
+
+	for (i = 0; i < NUM_VIG_PIPES; i++) {
+		layers[VIG_PIPE_START + i].layer_id = i;
+		layers[VIG_PIPE_START + i].layer_type = VIG_TYPE;
+		layers[VIG_PIPE_START + i].assigned = 0;
+	}
+
+	for (i = 0; i < NUM_DMA_PIPES; i++) {
+		layers[DMA_PIPE_START + i].layer_id = i;
+		layers[DMA_PIPE_START + i].layer_type = DMA_TYPE;
+		layers[DMA_PIPE_START + i].assigned = 0;
+	}
+
+	return 0;
+}
+
+extern void set_multi_panel(bool val);
+void target_display_init(const char *panel_name)
+{
+	struct oem_panel_data oem;
+
+	target_display_populate(displays);
+	target_layers_populate(layers);
+
+	set_panel_cmd_string(panel_name);
+	oem = mdss_dsi_get_oem_data();
+	if (!strcmp(oem.panel, NO_PANEL_CONFIG)
+		|| !strcmp(oem.panel, SIM_VIDEO_PANEL)
+		|| !strcmp(oem.panel, SIM_DUALDSI_VIDEO_PANEL)
+		|| !strcmp(oem.panel, SIM_CMD_PANEL)
+		|| !strcmp(oem.panel, SIM_DUALDSI_CMD_PANEL)
+		|| oem.skip) {
+		dprintf(INFO, "Selected panel: %s\nSkip panel configuration\n",
+			oem.panel);
+		goto target_display_init_end;
+	} else if (!strcmp(oem.panel, HDMI_PANEL_NAME)) {
+		mdss_hdmi_display_init(MDP_REV_50, (void *) HDMI_FB_ADDR);
+		goto target_display_init_end;
+	} else if (!strcmp(oem.panel, "dual_720p_single_hdmi_video")) {
+		// Three display panels init, init DSI0 first
+		set_multi_panel(true);
+		gcdb_display_init("adv7533_720p_dsi0_video", MDP_REV_50,
+				(void *)MIPI_FB_ADDR);
+		// if the panel has different size or color format, they cannot use
+		// the same FB buffer
+		gcdb_display_init("adv7533_720p_dsi1_video", MDP_REV_50,
+				(void *)MIPI_FB_ADDR + 0x1000000);
+		mdss_hdmi_display_init(MDP_REV_50, (void *) HDMI_FB_ADDR);
+
+		goto target_display_init_end;
+	}
+
+	if (gcdb_display_init(oem.panel, MDP_REV_50, (void *)MIPI_FB_ADDR)) {
+		target_force_cont_splash_disable(true);
+		msm_display_off();
+	}
+
+	if (!oem.cont_splash) {
+		dprintf(INFO, "Forcing continuous splash disable\n");
+		target_force_cont_splash_disable(true);
+	}
+
+target_display_init_end:
+	display_init_done = true;
+}
+
+void target_display_shutdown(void)
+{
+	struct oem_panel_data oem = mdss_dsi_get_oem_data();
+	if (!strcmp(oem.panel, HDMI_PANEL_NAME)) {
+		msm_display_off();
+	} else {
+		gcdb_display_shutdown();
+	}
+	display_init_done = false;
+}
+
+#else
 void target_display_init(const char *panel_name)
 {
 	struct oem_panel_data oem;
@@ -611,3 +739,145 @@ void target_display_shutdown(void)
 {
 	gcdb_display_shutdown();
 }
+#endif
+
+#ifdef EARLY_CAMERA_SUPPORT
+/* DYNAMIC APIS */
+void * target_acquire_rbg_pipe(struct target_display *disp)
+{
+	int i = 0;
+
+	for (i = 0; i < NUM_RGB_PIPES &&
+		(RGB_PIPE_START + i) < NUM_TARGET_LAYERS; i++) {
+		if (!layers[RGB_PIPE_START + i].assigned) {
+			layers[RGB_PIPE_START + i].assigned = true;
+			layers[RGB_PIPE_START + i].disp = disp;
+			return &layers[RGB_PIPE_START + i];
+		}
+	}
+	return NULL;
+}
+
+/* DYNAMIC APIS */
+void * target_acquire_vig_pipe(struct target_display *disp)
+{
+	int i = 0;
+	for (i = 0; i < NUM_VIG_PIPES &&
+		(VIG_PIPE_START + i) < NUM_TARGET_LAYERS; i++) {
+		if (!layers[VIG_PIPE_START + i].assigned) {
+			layers[VIG_PIPE_START + i].assigned = true;
+			layers[VIG_PIPE_START + i].disp = disp;
+			return &layers[VIG_PIPE_START + i];
+		}
+	}
+	return NULL;
+}
+
+void * target_display_open (uint32 display_id)
+{
+	if (display_id >= NUM_TARGET_DISPLAYS) {
+		dprintf(CRITICAL, "Invalid display id %u\n", display_id);
+		return NULL;
+	} else {
+		return (void *) &displays[display_id];
+	}
+}
+
+struct target_display * target_get_display_info(void *disp)
+{
+	return (struct target_display *) disp;
+}
+
+void *target_display_acquire_layer(struct target_display * disp, char *client_name, int color_format)
+{
+	if (color_format < kFormatYCbCr422H2V1Packed)
+		return target_acquire_rbg_pipe(disp);
+	else
+		return target_acquire_vig_pipe(disp);
+}
+
+struct fbcon_config* target_display_get_fb(uint32_t disp_id)
+{
+	return msm_display_get_fb(disp_id);
+}
+
+int target_display_update(struct target_display_update * update, uint32_t size, uint32_t disp_id)
+{
+	uint32_t i = 0;
+	uint32_t pipe_type, pipe_id, zorder;
+	struct target_layer_int *lyr;
+	struct target_display *cur_disp;
+	uint32_t ret = 0;
+
+	if (update == NULL) {
+		dprintf(CRITICAL, "Error: Invalid argument\n");
+		return ERR_INVALID_ARGS;
+	}
+	if (KERNEL_TRIGGER_VALUE == readl_relaxed((void *)MDSS_SCRATCH_REG_0)) {
+			// Remove Animated splash layer
+			lyr = (struct target_layer_int *)update[i].layer_list[0].layer;
+			if (lyr != NULL)
+				msm_display_remove_pipe(lyr->layer_id, lyr->layer_type, disp_id);
+			else
+				dprintf(CRITICAL, "No layer to remove\n");
+			// Remove static splash layer
+			msm_display_remove_pipe(0, 0, disp_id);
+		return 1;
+	}
+
+	for (i = 0; i < size; i++) {
+		cur_disp = (struct target_display *)update[i].disp;
+		lyr = (struct target_layer_int *)update[i].layer_list[0].layer;
+		if (lyr == NULL) {
+			dprintf(CRITICAL, "Invalid layer entry %p\n",cur_disp);
+			return ERR_INVALID_ARGS;
+		}
+		pipe_id = lyr->layer_id;
+		pipe_type = lyr->layer_type;
+		zorder = update[i].layer_list[0].z_order;
+
+		ret = msm_display_update(update[i].layer_list[0].fb, pipe_id, pipe_type, zorder,
+			update[i].layer_list[0].width, update[i].layer_list[0].height, disp_id);
+		if (ret != 0)
+			dprintf(CRITICAL, "Error in display upadte ret=%u\n",ret);
+
+	}
+	return ret;
+}
+
+int target_release_layer(struct target_layer *layer)
+{
+	struct target_layer_int *cur_layer = NULL;
+
+	if ((!layer) || (NULL == layer->layer)) {
+		return ERR_INVALID_ARGS;
+	}
+
+	cur_layer = (struct target_layer_int *) layer->layer;
+	cur_layer->assigned = false;
+	cur_layer->disp = NULL;
+
+	msm_display_remove_pipe(cur_layer->layer_id, cur_layer->layer_type, 0);
+	return 0;
+}
+
+int target_is_yuv_format(uint32_t format)
+{
+	if (format < kFormatYCbCr422H2V1Packed)
+		return 0;
+	else
+		return 1;
+}
+
+int target_display_close(struct target_display * disp) {
+	return 0;
+}
+
+int target_get_max_display() {
+#ifdef NUM_TARGET_DISPLAYS
+    return NUM_TARGET_DISPLAYS;
+#else
+	return 1;
+#endif
+}
+#endif

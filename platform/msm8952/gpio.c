@@ -54,10 +54,27 @@ void gpio_set_dir(uint32_t gpio, uint32_t dir)
 	return;
 }
 
+#ifdef EARLY_CAMERA_SUPPORT
+void gpio_set(uint32_t gpio, uint32_t dir)
+{
+	writel(dir, (unsigned int *)GPIO_IN_OUT_ADDR(gpio));
+	return;
+}
+#endif
+
 uint32_t gpio_status(uint32_t gpio)
 {
 	return readl(GPIO_IN_OUT_ADDR(gpio)) & GPIO_IN;
 }
+
+#ifdef EARLY_CAMERA_SUPPORT
+int gpio_get(uint32_t gpio)
+{
+	int val = 0;
+	val = readl((unsigned int *)GPIO_IN_OUT_ADDR(gpio));
+	return val;
+}
+#endif
 
 /* Configure gpio for blsp uart 2 */
 void gpio_config_uart_dm(uint8_t id)

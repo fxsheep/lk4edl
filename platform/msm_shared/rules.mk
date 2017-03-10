@@ -27,6 +27,10 @@ ifeq ($(ENABLE_SECAPP_LOADER), 1)
 OBJS += $(LOCAL_DIR)/secapp_loader.o
 endif
 
+ifeq ($(ENABLE_PSCI_SUPPORT),1)
+OBJS += $(LOCAL_DIR)/psci.o
+endif
+
 ifeq ($(ENABLE_QGIC3), 1)
 OBJS += $(LOCAL_DIR)/qgic_v3.o
 endif
@@ -628,6 +632,9 @@ DEFINES += DISPLAY_TYPE_MDSS=1
 			$(LOCAL_DIR)/mipi_dsc.o \
 			$(LOCAL_DIR)/mipi_dsi_phy.o \
 			$(LOCAL_DIR)/mipi_dsi_autopll.o
+ifdef ENABLE_EARLY_CAMERA_SUPPORT
+	OBJS += $(LOCAL_DIR)/mdss_hdmi.o
+endif
 endif
 
 ifeq ($(PLATFORM),msm8953)

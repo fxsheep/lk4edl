@@ -86,4 +86,7 @@ void get_bootloader_version(unsigned char *buf);
 void get_baseband_version(unsigned char *buf);
 bool is_device_locked();
 bool platform_is_mdmcalifornium();
+#if EARLYDOMAIN_SUPPORT
+int platform_get_secondary_cpu_num();
+#endif /*EARLYDOMAIN_SUPPORT*/
 #endif

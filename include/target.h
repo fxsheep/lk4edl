@@ -88,6 +88,12 @@ int _emmc_recovery_init(void);
 void ulpi_write(unsigned val, unsigned reg);
 void target_crypto_init_params(void);
 int target_cont_splash_screen(void);
+
+#ifdef EARLY_CAMERA_SUPPORT
+int target_animated_splash_screen(void);
+bool target_is_mmc_read_done();
+#endif
+
 bool target_build_variant_user();
 void pmic_reset_configure(uint8_t reset_type);
 
@@ -106,5 +112,9 @@ uint32_t target_get_battery_voltage();
 bool target_battery_soc_ok();
 bool target_battery_is_present();
 uint32_t target_get_pmic();
+#ifdef EARLY_CAMERA_SUPPORT
+void earlydomain();
+int target_is_yuv_format(uint32_t format);
+#endif
 int target_update_cmdline(char *cmdline);
 #endif

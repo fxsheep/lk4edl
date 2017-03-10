@@ -63,6 +63,10 @@ void arch_switch_stacks_and_call(addr_t call, addr_t stack) __NO_RETURN;
 
 uint32_t arch_cycle_count(void);
 
+#ifdef EARLY_CAMERA_SUPPORT
+void cpu_on_asm(void);
+#endif
+
 #if defined(__cplusplus)
 }
 #endif

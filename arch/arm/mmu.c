@@ -94,6 +94,26 @@ void arm_mmu_init(void)
 	arm_write_cr1(arm_read_cr1() | 0x1);
 }
 
+#ifdef EARLY_CAMERA_SUPPORT
+void secondary_cpu_init(void)
+{
+	/* set some mmu specific control bits:
+	 * access flag disabled, TEX remap disabled, mmu disabled
+	 */
+	arm_write_cr1(arm_read_cr1() & ~((1<<29)|(1<<28)|(1<<0)));
+
+	/* set up the translation table base */
+	arm_write_ttbr((uint32_t)tt);
+
+	/* set up the domain access register */
+	arm_write_dacr(0x00000001);
+
+	/* turn on the mmu */
+	arm_write_cr1(arm_read_cr1() | 0x1);
+
+}
+#endif
+
 void arch_disable_mmu(void)
 {
 	/* Ensure all memory access are complete
