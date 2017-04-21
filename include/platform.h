@@ -89,4 +89,5 @@ bool platform_is_mdmcalifornium();
 #if EARLYDOMAIN_SUPPORT
 int platform_get_secondary_cpu_num();
 #endif /*EARLYDOMAIN_SUPPORT*/
+uint64_t platform_get_ddr_start();
 #endif
