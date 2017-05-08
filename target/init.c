@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2008 Travis Geiselbrecht
  *
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -248,6 +248,34 @@ __WEAK uint32_t target_ddr_cfg_val()
 	return DDR_CONFIG_VAL;
 }
 
+/* Default CFG register value */
+uint32_t target_ddr_cfg_reg()
+{
+	uint32_t platform = board_platform_id();
+	uint32_t ret = SDCC_HC_REG_DDR_CONFIG;
+
+	switch(platform)
+	{
+		case MSM8937:
+		case MSM8940:
+		case APQ8037:
+		case MSM8917:
+		case MSM8920:
+		case MSM8217:
+		case MSM8617:
+		case APQ8017:
+		case MSM8953:
+		case APQ8053:
+		case SDM450:
+		/* SDCC HC DDR CONFIG has shifted by 4 bytes for these platform */
+			ret += 4;
+			break;
+		default:
+			break;
+	}
+	return ret;
+}
+
 #if PON_VIB_SUPPORT
 void get_vibration_type(struct qpnp_hap *config)
 {
@@ -278,6 +306,7 @@ void get_vibration_type(struct qpnp_hap *config)
 		case APQ8017:
 		case MSM8953:
 		case APQ8053:
+		case SDM450:
 			config->vib_type = VIB_LRA_TYPE;
 			config->hap_rate_cfg1 = QPNP_HAP_RATE_CFG1_41;
 			config->hap_rate_cfg2 = QPNP_HAP_RATE_CFG2_03;
