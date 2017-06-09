@@ -1177,13 +1177,14 @@ int boot_linux_from_mmc(void)
 		page_mask = page_size - 1;
 	}
 
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
-
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
 
 	image_addr = (unsigned char *)target_get_scratch_address();
+	memcpy(image_addr, (void *)buf, page_size);
+
+	/* ensure commandline is terminated */
+        hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
@@ -1232,9 +1233,9 @@ int boot_linux_from_mmc(void)
 		dprintf(CRITICAL, "booimage  size is greater than DDR can hold\n");
 		return -1;
 	}
-
-	/* Read image without signature */
-	if (mmc_read(ptn + offset, (void *)image_addr, imagesize_actual))
+	offset = page_size;
+	/* Read image without signature and header*/
+	if (mmc_read(ptn + offset, (void *)(image_addr + offset), imagesize_actual - page_size))
 	{
 		dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 		return -1;
@@ -1574,8 +1575,8 @@ int boot_linux_from_flash(void)
 		return -1;
 	}
 
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+	image_addr = (unsigned char *)target_get_scratch_address();
+	memcpy(image_addr, (void *)buf, page_size);
 
 	/*
 	 * Update the kernel/ramdisk/tags address if the boot image header
@@ -1591,6 +1592,9 @@ int boot_linux_from_flash(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+
+	/* ensure commandline is terminated */
+	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
@@ -1611,8 +1615,6 @@ int boot_linux_from_flash(void)
 	/* Authenticate Kernel */
 	if(target_use_signed_kernel() && (!device.is_unlocked))
 	{
-		image_addr = (unsigned char *)target_get_scratch_address();
-		offset = 0;
 
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
@@ -1655,8 +1657,9 @@ int boot_linux_from_flash(void)
 			dprintf(CRITICAL, "bootimage  size is greater than DDR can hold\n");
 			return -1;
 		}
-		/* Read image without signature */
-		if (flash_read(ptn, offset, (void *)image_addr, imagesize_actual))
+		offset = page_size;
+		/* Read image without signature and header*/
+		if (flash_read(ptn, offset, (void *)(image_addr + offset), imagesize_actual - page_size))
 		{
 			dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 				return -1;
@@ -2710,14 +2713,6 @@ void cmd_erase(const char *arg, void *data, unsigned sz)
 		cmd_erase_nand(arg, data, sz);
 }
 
-static uint32_t aboot_get_secret_key()
-{
-	/* 0 is invalid secret key, update this implementation to return
-	 * device specific unique secret key
-	 */
-	return 0;
-}
-
 void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 {
 	unsigned long long ptn = 0;
@@ -3311,6 +3306,8 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptable *ptable;
 	unsigned extra = 0;
 	uint64_t partition_size = 0;
+	unsigned bytes_to_round_page = 0;
+	unsigned rounded_size = 0;
 
 	if((uintptr_t)data > (UINT_MAX - sz)) {
 		fastboot_fail("Cannot flash: image header corrupt");
@@ -3347,9 +3344,22 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		|| !strcmp(ptn->name, "modem"))
 		extra = 1;
 	else {
-		if (sz % page_size) {
-			fastboot_fail("Buffer size is not aligned to page_size");
-			return;
+		rounded_size = ROUNDUP(sz, page_size);
+		bytes_to_round_page = rounded_size - sz;
+		if (bytes_to_round_page) {
+			if (((uintptr_t)data + sz ) > (UINT_MAX - bytes_to_round_page)) {
+				fastboot_fail("Integer overflow detected");
+				return;
+			}
+			if (((uintptr_t)data + sz + bytes_to_round_page) >
+				((uintptr_t)target_get_scratch_address() + target_get_max_flash_size())) {
+				fastboot_fail("Buffer size is not aligned to page_size");
+				return;
+			}
+			else {
+				memset(data + sz, 0, bytes_to_round_page);
+				sz = rounded_size;
+			}
 		}
 	}
 
@@ -3512,20 +3522,24 @@ void cmd_oem_unlock_go(const char *arg, void *data, unsigned sz)
 
 static int aboot_frp_unlock(char *pname, void *data, unsigned sz)
 {
-	int ret = 1;
-	uint32_t secret_key;
-	char seckey_buffer[MAX_RSP_SIZE];
+	int ret=1;
+	bool authentication_success=false;
 
-	secret_key = aboot_get_secret_key();
-	if (secret_key)
+	/*
+		Authentication method not  implemented.
+
+		OEM to implement, authentication system which on successful validataion,
+		calls write_allow_oem_unlock() with is_allow_unlock.
+	*/
+#if 0
+	authentication_success = oem_specific_auth_mthd();
+#endif
+
+	if (authentication_success)
 	{
-		snprintf((char *) seckey_buffer, MAX_RSP_SIZE, "%x", secret_key);
-		if (!memcmp((void *)data, (void *)seckey_buffer, sz))
-		{
-			is_allow_unlock = true;
-			write_allow_oem_unlock(is_allow_unlock);
-			ret = 0;
-		}
+		is_allow_unlock = true;
+		write_allow_oem_unlock(is_allow_unlock);
+		ret = 0;
 	}
 	return ret;
 }
