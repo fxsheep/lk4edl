@@ -33,10 +33,20 @@
 #include <platform.h>
 
 static uint32_t kernel_load_start;
+static uint32_t zero_initialized = 0;
+
 void bs_set_timestamp(enum bs_entry bs_id)
 {
 	addr_t bs_imem = get_bs_info_addr();
 	uint32_t clk_count = 0;
+	int i;
+
+	if(!zero_initialized)
+	{
+		for (i = 0; i < BS_MAX; ++i)
+			writel (0, bs_imem + (sizeof(uint32_t) * i));
+		zero_initialized=1;
+	}
 
 	if(bs_imem) {
 		if (bs_id >= BS_MAX) {

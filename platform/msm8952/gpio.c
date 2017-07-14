@@ -54,14 +54,6 @@ void gpio_set_dir(uint32_t gpio, uint32_t dir)
 	return;
 }
 
-#ifdef EARLY_CAMERA_SUPPORT
-void gpio_set(uint32_t gpio, uint32_t dir)
-{
-	writel(dir, (unsigned int *)GPIO_IN_OUT_ADDR(gpio));
-	return;
-}
-#endif
-
 uint32_t gpio_status(uint32_t gpio)
 {
 	return readl(GPIO_IN_OUT_ADDR(gpio)) & GPIO_IN;
@@ -73,6 +65,12 @@ int gpio_get(uint32_t gpio)
 	int val = 0;
 	val = readl((unsigned int *)GPIO_IN_OUT_ADDR(gpio));
 	return val;
+}
+
+void gpio_set(uint32_t gpio, uint32_t dir)
+{
+	writel(dir, (unsigned int *)GPIO_IN_OUT_ADDR(gpio));
+	return;
 }
 #endif
 

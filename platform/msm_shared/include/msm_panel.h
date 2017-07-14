@@ -247,7 +247,6 @@ struct dfps_info {
 	struct dfps_panel_info panel_dfps;
 	struct dfps_codes_info codes_dfps[DFPS_MAX_FRAME_RATE];
 	void *dfps_fb_base;
-	uint32_t chip_serial;
 };
 
 /* intf timing settings */
@@ -393,10 +392,6 @@ struct msm_panel_info {
 	uint32_t compression_mode;
 	/*  Select pipe type for handoff */
 	uint32_t pipe_type;
-#ifdef EARLY_CAMERA_SUPPORT
-	uint32_t pipe_id;
-	uint32_t zorder;
-#endif
 	char     lowpowerstop;
 	char     lcd_reg_en;
 	uint32_t border_top;

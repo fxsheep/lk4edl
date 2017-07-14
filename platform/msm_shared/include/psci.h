@@ -29,6 +29,19 @@
 #ifndef _PSCI_H_
 #define _PSCI_H_
 
+/* PSCI return values (inclusive of all PSCI versions) */
+#define PSCI_RET_SUCCESS                        0
+#define PSCI_RET_NOT_SUPPORTED                 -1
+#define PSCI_RET_INVALID_PARAMS                -2
+#define PSCI_RET_DENIED                        -3
+#define PSCI_RET_ALREADY_ON                    -4
+#define PSCI_RET_ON_PENDING                    -5
+#define PSCI_RET_INTERNAL_FAILURE              -6
+#define PSCI_RET_NOT_PRESENT                   -7
+#define PSCI_RET_DISABLED                      -8
+
+#define nop() 	__asm__ volatile("nop")
+
 int psci_cpu_on(uint32_t cpu_id, uint32_t phys_addr);
 int psci_cpu_off();
 

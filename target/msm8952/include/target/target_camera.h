@@ -29,38 +29,62 @@
 #ifndef _TARGET_CAMERA_H
 #define _TARGET_CAMERA_H
 
-#define EARLY_CAMERA
-
-//#define BRIDGE_REV_1  // For adashub rev 1 of TI 960 Bridge chip.
-#define DISPLAY_ID 0 // Use dsi 0
-
-#define MAX_REV_ID 2
-
-struct camera_i2c_reg_array {
-	unsigned short reg_addr;
-	unsigned short reg_data;
-	unsigned int delay;
+struct msm_vfe_error_info {
+	uint32_t overflow_state;
+	uint32_t error_mask0;
+	uint32_t error_mask1;
+	uint32_t violation_status;
+	uint32_t camif_status;
+	uint8_t stream_framedrop_count[4];
+	uint8_t stats_framedrop_count[4];
+	uint32_t info_dump_frame_count;
+	uint32_t error_count;
+	uint32_t framedrop_flag;
 };
 
-struct i2c_config_data {
-	struct camera_i2c_reg_array *i2c_regs;	// Array of i2c registers to be written
-	unsigned int	size;					// Number of elements in the array
-	unsigned int	i2c_slave_address;		// Slave address to use for the write
-	unsigned int	i2c_num_bytes_address;// Number of bytes used for i2c address
-	unsigned int	i2c_num_bytes_data;	// Number of bytes used for i2c data
-	unsigned int	i2c_revision_id_num;	// Number of revision id's to check
-	unsigned int	i2c_revision_id_val[MAX_REV_ID];	// Expected revision id's of the device
-	unsigned int	i2c_revision_id_reg;	// Address of the expected revision id of the device
+struct vfe_device {
+
+	struct msm_vfe_error_info error_info;
+	/* irq info */
+	uint32_t irq0_mask;
+	uint32_t irq1_mask;
+
+	uint32_t vfe_hw_version;
+
+	uint32_t id;
 };
 
-int get_cam_data(struct i2c_config_data **cam_data);
-int early_camera_init(void);
-void target_early_camera_init(void);
-void early_camera_flip(void);
-int early_camera_on(void);
+struct camera_hw_reg_array {
+  unsigned int reg_addr;
+  unsigned int reg_data;
+};
 
-void early_camera_stop(void);
-
-void set_early_camera_enabled(bool enabled);
-
+void early_camera_fastrvc_thread(void);
+void camera_csiphy_init();
+void camera_csiphy_lane_config_start();
+void camera_csiphy_release();
+int  camera_csid_init();
+int  camera_csid_config_start();
+int  msm_ispif_init();
+int  msm_vfe_irq(struct vfe_device *vfe_dev);
+int  msm_isp_open_node(struct vfe_device *vfe_dev);
+void msm_isp_vfe_start_stream(struct vfe_device *vfe_dev);
+void msm_ispif_cfg();
+int msm_vfe_gds_enable();
+void msm_hw_init(struct camera_hw_reg_array *pdata,int size);
+uint32_t msm_vfe_poll_irq0();
+uint32_t msm_vfe_poll_irq1();
+void msm_vfe_irq_mask_cfg(uint32_t irq0,uint32_t irq1);
+uint32_t msm_vfe_pingpong_status();
+void msm_get_camera_frame();
+void vfe_cfg_start();
+void msm_vfe_pingping_cfg(uint32_t ping_addr,uint32_t pong_addr);
+void camera_csid_release();
+void msm_ispif_release();
+void msm_isp_close_node(struct vfe_device *vfe_dev);
+void camera_csiphy_clock_disable();
+void camera_csid_clock_disable();
+void msm_isp_clock_disable();
+void msm_ispif_clock_disable();
+void nv12_to_rgb888();
 #endif

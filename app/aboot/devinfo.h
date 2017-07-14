@@ -61,16 +61,10 @@ struct device_info
 	bool is_tampered;
 	bool is_unlock_critical;
 	bool charger_screen_enabled;
-#ifdef EARLY_CAMERA_SUPPORT
-	bool early_domain_enabled;
-#endif
 	char display_panel[MAX_PANEL_ID_LEN];
 	char bootloader_version[MAX_VERSION_LEN];
 	char radio_version[MAX_VERSION_LEN];
 	bool verity_mode; // 1 = enforcing, 0 = logging
-#ifdef EARLY_CAMERA_SUPPORT
-	bool early_camera_enabled;
-#endif
 };
 #endif
 #endif

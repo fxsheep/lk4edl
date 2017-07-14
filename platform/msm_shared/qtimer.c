@@ -88,58 +88,6 @@ static void delay(uint64_t ticks)
 
 }
 
-#ifdef EARLY_CAMERA_SUPPORT
-/* Blocking function to wait until the specified ticks of the timer.
- * uses a reduced accuracry of ~100uS
- * Note: ticks to wait for cannot be more than 56 bit.
- *          Should be sufficient for all practical purposes.
- */
-static void delay_optimal(uint64_t ticks)
-{
-	volatile uint64_t cnt;
-	uint64_t init_cnt;
-	uint64_t timeout = 0;
-
-	cnt = qtimer_get_phy_timer_cnt();
-	init_cnt = cnt;
-
-	/* Calculate timeout = cnt + ticks (mod 2^56)
-	 * to account for timer counter wrapping
-	 */
-	timeout = (cnt + ticks) & (uint64_t)(QTMR_PHY_CNT_MAX_VALUE);
-
-	/* Wait out till the counter wrapping occurs
-	 * in cases where there is a wrapping.
-	 */
-	while(timeout < cnt && init_cnt <= cnt)
-		/* read global counter */
-		cnt = qtimer_get_phy_timer_cnt();
-
-	unsigned int nop_loop_cnt;
-
-	/* Wait till the number of ticks is reached*/
-	while(timeout > cnt)
-	{
-		for(nop_loop_cnt = 45000;nop_loop_cnt > 0; nop_loop_cnt--)
-		{
-			__asm__("mov r1,r1");
-		}
-
-		/* read global counter */
-		cnt = qtimer_get_phy_timer_cnt();
-	}
-}
-
-
-void mdelay_optimal(unsigned msecs)
-{
-	uint64_t ticks;
-
-	ticks = ((uint64_t) msecs * ticks_per_sec) / 1000;
-
-	delay_optimal(ticks);
-}
-#endif
 
 void mdelay(unsigned msecs)
 {

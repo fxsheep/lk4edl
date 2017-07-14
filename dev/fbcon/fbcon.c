@@ -11,7 +11,7 @@
  *    notice, this list of conditions and the following disclaimer.
  *  * Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the 
+ *    the documentation and/or other materials provided with the
  *    distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -21,7 +21,7 @@
  * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
- * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED 
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
  * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
@@ -537,9 +537,14 @@ void display_default_image_on_screen(void)
 #endif
 }
 
-
 void display_image_on_screen(void)
 {
+#if SECONDARY_CPU_SUPPORT
+	/* If entery fastboot mode, do not show FastRVC screen */
+	if(query_fastrvc_working_status())
+		return ;
+#endif
+
 #if DISPLAY_TYPE_MIPI
 	int fetch_image_from_partition();
 
@@ -552,4 +557,33 @@ void display_image_on_screen(void)
 #else
 	display_default_image_on_screen();
 #endif
+
 }
+
+#ifdef EARLY_CAMERA_SUPPORT
+
+void display_camera_on_screen(uint32_t addr, int flag)
+{
+    unsigned char *pixels = config->base;
+    unsigned char *pixels_temp = NULL;
+    int i = 0;
+
+    if(flag){
+        pixels = config->base + 6*1080;
+        pixels_temp = (unsigned char*)(addr + 1080*1907*3);
+    }else{
+        pixels = config->base + 9*1080;
+        pixels_temp = (unsigned char*)(addr + 1080*1906*3);
+    }
+    for(; i < 1906; i +=2){
+        memcpy(pixels,pixels_temp,1080*3);
+        pixels += 6*1080;
+        pixels_temp -= 6*1080;
+    }
+}
+
+void display_camera_default_image(bool is_display){
+	if(is_display == false)
+		display_default_image_on_screen();
+}
+#endif

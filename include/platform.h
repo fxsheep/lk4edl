@@ -86,8 +86,70 @@ void get_bootloader_version(unsigned char *buf);
 void get_baseband_version(unsigned char *buf);
 bool is_device_locked();
 bool platform_is_mdmcalifornium();
-#if EARLYDOMAIN_SUPPORT
+void display_camera_on_screen(uint32_t addr,int flag);
+void display_camera_default_image();
+#if SECONDARY_CPU_SUPPORT
+/*
+*******************************************************************************
+** MDSS_SCRATCH_REG_0:  MDSS Registers
+** FRVC_CAMERA_IS_ENABLED: Camera is only init, and not using now; if reverse signal is trig
+**                                                         the status will change to FRVC_CAMERA_IS_WORKING.
+** FRVC_CAMERA_IS_WORKING: Camera is using now;if reverse signal is comming,the status
+**                                                           will change to FRVC_CAMERA_IS_DONE
+** FRVC_CAMERA_IS_DONE: Camera using complete.
+*******************************************************************************
+*/
+#define FRVC_SHARED_MEM_BASE (MSM_SHARED_IMEM_BASE + 0x680) // base = 0x08600000
+#define FRVC_CAMERA_STATUS_REG   (FRVC_SHARED_MEM_BASE+0x0) /* Camera Status */
+#define FRVC_CAMERA_IS_ENABLED    0x5a5a5a5a
+#define FRVC_CAMERA_IS_WORKING   0xF5F5F5F5
+#define FRVC_CAMERA_IS_DONE          0xa5a5a5a5
+
+/*
+*******************************************************************************
+** MDSS_SCRATCH_REG_1:  MDSS Registers
+** FRVC_DISPLAY_IS_ENABLED: Camera is only init, and not using now; if reverse signal is trig
+**                                                         the status will change to FRVC_DISPLAY_IS_WORKING.
+** FRVC_DISPLAY_IS_WORKING: Camera is using now;if reverse signal is comming,the status
+**                                                           will change to FRVC_DISPLAY_IS_DONE
+** FRVC_DISPLAY_IS_DONE: Camera using complete.
+*******************************************************************************
+*/
+#define FRVC_DISPLAY_STATUS_REG   (FRVC_SHARED_MEM_BASE+0x4) /* Display Status */
+#define FRVC_DISPLAY_IS_ENABLED    0x5a5a5a5a
+#define FRVC_DISPLAY_IS_WORKING   0xF5F5F5F5
+#define FRVC_DISPLAY_IS_DONE          0xa5a5a5a5
+#define FRVC_NOTIFY_ANDROID_SHOW_CAMERA      0x8B8B8B8B
+#define FRVC_NOTIFY_ANDROID_NOT_SHOW_CAMERA  0x7D7D7D7D
+/*
+*******************************************************************************
+** MDSS_SCRATCH_REG_2:  MDSS Registers
+** KERNEL_REQUEST_EXIT_FRVC: kernel request FRVC exit immediately
+** KERNEL_REQUEST_STOP_FRVC: kernel request FRVC thread quit, maybe android system
+**                                                               is boot complete.
+** KERNEL_REQUEST_PAUSE_FRVC: Kernel request pause dispaly RVC
+** KERNEL_REQUEST_TRIG_FRVC: Kernel request show FastRVC
+*******************************************************************************
+*/
+#define FRVC_KERNEL_NOTIFY_LK_REG      (FRVC_SHARED_MEM_BASE+0x8) /* Notify Message */
+//This value indicates kernel request LK to shutdown immediately
+#define KERNEL_REQUEST_EXIT_FRVC       0xDEADDEAD
+#define KERNEL_REQUEST_STOP_FRVC 	0xFEFEFEFE
+#define FRVC_NOTIFY_KERNEL_WAIT_EXIT   0x8D8D8D8D
+#define FRVC_NOTIFY_KERNEL_EXIT_DONE   0x7C7C7C7C
+
+//This value indicate that kernel request FastRVC pause display
+#define KERNEL_REQUEST_PAUSE_FRVC 	0xF0F0F0F0
+#define KERNEL_REQUEST_REGAIN_FRVC      0xF5F5F5F5
+
+#define FRVC_LK_NOTIFY_KERNEL_REG    (FRVC_SHARED_MEM_BASE+0xC) /* Notify Message */
+#define FRVC_LK_NOTIFY_DISPLAY_PAUSE 	0xF0F0F0F0
+
+
 int platform_get_secondary_cpu_num();
-#endif /*EARLYDOMAIN_SUPPORT*/
-uint64_t platform_get_ddr_start();
+void early_camera_fastrvc_entery();
+bool query_fastrvc_working_status();
+void request_fastrvc_pause_working(bool showFlag);
+#endif /*SECONDARY_CPU_SUPPORT*/
+
 #endif

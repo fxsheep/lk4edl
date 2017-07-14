@@ -302,7 +302,7 @@ FUNCTION(arm_write_ttbcr)
 	mcr p15, 0, r0, c2, c0, 2
 	bx lr
 
-#if EARLYDOMAIN_SUPPORT
+#if SECONDARY_CPU_SUPPORT
 /* void cpu_on_asm(void) */
 FUNCTION(cpu_on_asm)
     ldr r1, =cpu_stack_top	/* stack base ptr, SP 16-byte aligned */
@@ -311,9 +311,7 @@ FUNCTION(cpu_on_asm)
     mov r0, #3			/* UCACHE */
     bl  arch_disable_cache
 
-
     b   secondary_cpu_init	/* secondary cpu initialization */
- #   b   earlydomain /* secondary cpu initialization */
 #else
 /* stub function */
 FUNCTION(cpu_on_asm)

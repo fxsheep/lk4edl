@@ -41,13 +41,18 @@
 #include <platform.h>
 #include <target/display.h>
 
-#ifdef EARLY_CAMERA_SUPPORT
+#if SECONDARY_CPU_SUPPORT
 enum
 {
-     APC0_CPU0 = 0x0,
-     APC0_CPU1 = 0x1,
-     APC1_CPU0 = 0x100,
-     APC1_CPU1 = 0x101,
+     APC0_CPU0 = 0x0,  //Cluster0 Core 0    =    CPU4
+     APC0_CPU1 = 0x1,  //Cluster0 Core 1    =    CPU5
+     APC0_CPU2 = 0x3,  //Cluster0 Core 2    =    CPU6
+     APC0_CPU3 = 0x4,  //Cluster0 Core 3    =    CPU7
+
+     APC1_CPU0 = 0x100, //Cluster1 Core 0    =    CPU0
+     APC1_CPU1 = 0x101, //Cluster1 Core 1    =    CPU1
+     APC1_CPU2 = 0x102, //Cluster1 Core 2    =    CPU2
+     APC1_CPU3 = 0x103, //Cluster1 Core 3    =    CPU3
 } cpu_aff;
 #endif
 
@@ -299,11 +304,11 @@ uint32_t platform_is_msm8976_v_1_1()
 
 	return ret;
 }
-#if EARLYDOMAIN_SUPPORT
+#if SECONDARY_CPU_SUPPORT
 /* return the cpu number for the secondary CPU to run early services on */
 int platform_get_secondary_cpu_num()
 {
-     return APC0_CPU1;
+	return APC1_CPU1;
 }
 #else
 /* stub functions */

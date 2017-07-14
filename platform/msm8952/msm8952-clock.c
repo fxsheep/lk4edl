@@ -45,6 +45,10 @@
 #define gpll0_mm_source_val 6
 #define gpll6_mm_source_val 3
 
+#ifdef EARLY_CAMERA_SUPPORT
+#define gpll6_source_val       2   /* mclk0_2_clk_src */
+#endif
+
 struct clk_freq_tbl rcg_dummy_freq = F_END;
 
 
@@ -594,9 +598,534 @@ static struct vote_clk gcc_ce1_axi_clk = {
 	},
 };
 
+#ifdef EARLY_CAMERA_SUPPORT
+static struct clk_freq_tbl ftbl_gcc_camss_mclk0_2_clk[] = {
+       F( 24000000,    gpll6,  1,      1,      45),
+       F( 66670000,    gpll0,  12,     0,      0),
+       F_END
+};
+
+static struct rcg_clk mclk0_clk_src = {
+       .cmd_reg      = (uint32_t *) MCLK0_CMD_RCGR,
+       .cfg_reg      = (uint32_t *) MCLK0_CFG_RCGR,
+       .m_reg        = (uint32_t *) MCLK0_CFG_M_RCGR,
+       .n_reg        = (uint32_t *) MCLK0_CFG_N_RCGR,
+       .d_reg        = (uint32_t *) MCLK0_CFG_D_RCGR,
+       .set_rate = clock_lib2_rcg_set_rate_mnd,
+       .freq_tbl = ftbl_gcc_camss_mclk0_2_clk,
+       .current_freq = &rcg_dummy_freq,
+       .c = {
+               .dbg_name = "mclk0_clk_src",
+               .ops = &clk_ops_rcg_mnd,
+       },
+};
+
+static struct branch_clk gcc_camss_mclk0_clk = {
+       .cbcr_reg = (uint32_t *)CAMSS_MCLK0_CBCR,
+        .parent = &mclk0_clk_src.c,
+       .has_sibling = 0,
+       .c = {
+               .dbg_name = "gcc_camss_mclk0_clk",
+               .ops = &clk_ops_branch,
+       },
+};
+
+static struct rcg_clk mclk1_clk_src = {
+       .cmd_reg      = (uint32_t *) MCLK1_CMD_RCGR,
+       .cfg_reg      = (uint32_t *) MCLK1_CFG_RCGR,
+       .m_reg        = (uint32_t *) MCLK1_CFG_M_RCGR,
+       .n_reg        = (uint32_t *) MCLK1_CFG_N_RCGR,
+       .d_reg        = (uint32_t *) MCLK1_CFG_D_RCGR,
+       .set_rate = clock_lib2_rcg_set_rate_mnd,
+       .freq_tbl = ftbl_gcc_camss_mclk0_2_clk,
+       .current_freq = &rcg_dummy_freq,
+       .c = {
+               .dbg_name = "mclk1_clk_src",
+               .ops = &clk_ops_rcg_mnd,
+       },
+};
+
+static struct branch_clk gcc_camss_mclk1_clk = {
+       .cbcr_reg = (uint32_t *)CAMSS_MCLK1_CBCR,
+        .parent = &mclk1_clk_src.c,
+       .has_sibling = 0,
+       .c = {
+               .dbg_name = "gcc_camss_mclk1_clk",
+               .ops = &clk_ops_branch,
+       },
+};
+
+static struct rcg_clk mclk2_clk_src = {
+	.cmd_reg      = (uint32_t *) MCLK2_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) MCLK2_CFG_RCGR,
+	.m_reg        = (uint32_t *) MCLK2_CFG_M_RCGR,
+	.n_reg        = (uint32_t *) MCLK2_CFG_N_RCGR,
+	.d_reg        = (uint32_t *) MCLK2_CFG_D_RCGR,
+	.set_rate = clock_lib2_rcg_set_rate_mnd,
+	.freq_tbl = ftbl_gcc_camss_mclk0_2_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "mclk2_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+	},
+};
+
+static struct branch_clk gcc_camss_mclk2_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_MCLK2_CBCR,
+	.parent = &mclk2_clk_src.c,
+	.has_sibling = 0,
+	.c = {
+		.dbg_name = "gcc_camss_mclk2_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+
+
+
+/*camera csiphy clk
+  gcc_camss_top_ahb_clk
+  gcc_camss_ispif_ahb_clk
+  csi0phytimer_clk_src  csi1phytimer_clk_src
+  gcc_camss_csi0phytimer_clk gcc_camss_csi1phytimer_clk
+  camss_top_ahb_clk_src
+  gcc_camss_csi0phy_clk  gcc_camss_csi1phy_clk
+  gcc_camss_ahb_clk
+
+*/
+static struct clk_freq_tbl ftbl_gcc_camss_top_ahb_clk[] = {
+	F( 40000000,	gpll0,	10,	1,	2),
+	F( 61540000,	gpll0,	13,	0,	0),
+	F( 80000000,	gpll0,	10,	0,	0),
+	F_END
+};
+
+static struct rcg_clk camss_top_ahb_clk_src = {
+	.cmd_reg      = (uint32_t *) CAMSS_TOP_AHB_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) CAMSS_TOP_AHB_CMD_RCGR_CFG,
+    .m_reg        = (uint32_t *) CAMSS_TOP_AHB_CMD_RCGR_M,
+    .n_reg        = (uint32_t *) CAMSS_TOP_AHB_CMD_RCGR_N,
+    .d_reg        = (uint32_t *) CAMSS_TOP_AHB_CMD_RCGR_D,
+	.set_rate     = clock_lib2_rcg_set_rate_mnd,
+	.freq_tbl     = ftbl_gcc_camss_top_ahb_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "camss_top_ahb_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+	},
+};
+
+static struct branch_clk gcc_camss_top_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_TOP_AHB_CBCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_top_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_ispif_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_ISPIF_AHB_CBCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 0,
+	.c = {
+		.dbg_name = "gcc_camss_ispif_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_AHB_CBCR,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+/*CSIPHY CLLK*/
+static struct clk_freq_tbl ftbl_gcc_camss_csi0_1phytimer_clk[] = {
+	F( 100000000,	gpll0,	8,	0,	0),
+	F( 160000000,	gpll0,	5,	0,	0),
+	F( 200000000,	gpll0,	4,	0,	0),
+	F_END
+};
+
+static struct rcg_clk csi0phytimer_clk_src = {
+	.cmd_reg      = (uint32_t *) CSI0PHYTIMER_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) CSI0PHYTIMER_CMD_RCGR_CFG,
+	.set_rate     = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl     = ftbl_gcc_camss_csi0_1phytimer_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "csi0phytimer_clk_src",
+		.ops = &clk_ops_rcg,
+	},
+};
+
+static struct rcg_clk csi1phytimer_clk_src = {
+	.cmd_reg      = (uint32_t *) CSI1PHYTIMER_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) CSI1PHYTIMER_CMD_RCGR_CFG,
+	.set_rate     = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl     = ftbl_gcc_camss_csi0_1phytimer_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "csi1phytimer_clk_src",
+		.ops = &clk_ops_rcg,
+	},
+};
+
+static struct branch_clk gcc_camss_csi0phytimer_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI0PHYTIMER_CBCR,
+	.parent = &csi0phytimer_clk_src.c,
+	.has_sibling = 0,
+	.c = {
+		.dbg_name = "gcc_camss_csi0phytimer_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi1phytimer_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI1PHYTIMER_CBCR,
+	.parent = &csi1phytimer_clk_src.c,
+	.has_sibling = 0,
+	.c = {
+		.dbg_name = "gcc_camss_csi1phytimer_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct clk_freq_tbl ftbl_gcc_camss_csi0_2_clk[] = {
+	F( 100000000,	gpll0,	8,	0,	0),
+	F( 160000000,	gpll0,	5,	0,	0),
+	F( 200000000,	gpll0,	4,	0,	0),
+	F_END
+};
+
+static struct rcg_clk csi0_clk_src = {
+	.cmd_reg      = (uint32_t *) CSI0_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) CSI0_CMD_RCGR_CFG,
+	.set_rate = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl = ftbl_gcc_camss_csi0_2_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "csi0_clk_src",
+		.ops = &clk_ops_rcg,
+	},
+};
+
+static struct branch_clk gcc_camss_csi0phy_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI0PHY_CBCR,
+	.parent = &csi0_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi0phy_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct rcg_clk csi1_clk_src = {
+	.cmd_reg      = (uint32_t *) CSI1_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) CSI1_CMD_RCGR_CFG,
+	.set_rate = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl = ftbl_gcc_camss_csi0_2_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "csi1_clk_src",
+		.ops = &clk_ops_rcg,
+	},
+};
+
+static struct branch_clk gcc_camss_csi1phy_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI1PHY_CBCR,
+	.parent = &csi1_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi1phy_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+//csid0 clk
+static struct branch_clk gcc_camss_csi0_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI0_AHB_CBCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi0_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi0_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI0_CBCR,
+	.parent = &csi0_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi0_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi0pix_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI0PIX_CBCR,
+	.parent = &csi0_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi0pix_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi0rdi_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI0RDI_CBCR,
+	.parent = &csi0_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi0rdi_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+//csid1 clk
+static struct branch_clk gcc_camss_csi1_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI1_AHB_CBCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi1_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi1_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI1_CBCR,
+	.parent = &csi1_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi1_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi1pix_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI1PIX_CBCR,
+	.parent = &csi1_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi1pix_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi1rdi_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI1RDI_CBCR,
+	.parent = &csi1_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi1rdi_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+//cci clk
+static struct clk_freq_tbl ftbl_gcc_camss_cci_clk[] = {
+	F( 19200000,	cxo,		1,	0,	0),
+	//F( 37500000,	gpll0_out_aux,	1,	3,	64),
+	F_END
+};
+
+static struct rcg_clk cci_clk_src = {
+	.cmd_reg      = (uint32_t *) CCI_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) CCI_CMD_RCGR_CFG,
+	.m_reg        = (uint32_t *) CCI_CMD_RCGR_M,
+    .n_reg        = (uint32_t *) CCI_CMD_RCGR_N,
+    .d_reg        = (uint32_t *) CCI_CMD_RCGR_D,
+	.set_rate = clock_lib2_rcg_set_rate_mnd,
+	.freq_tbl = ftbl_gcc_camss_cci_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "cci_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+	},
+};
+
+static struct branch_clk gcc_camss_cci_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CCI_AHB_CBCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_cci_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_cci_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CCI_CBCR,
+	.parent = &cci_clk_src.c,
+	.has_sibling = 0,
+	.c = {
+		.dbg_name = "gcc_camss_cci_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+//vfe clk
+static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk[] = {
+	F( 50000000,	gpll0,	16,	0,	0),
+	F( 80000000,	gpll0,	10,	0,	0),
+	F( 100000000,	gpll0,	8,	0,	0),
+	F( 133330000,	gpll0,	6,	0,	0),
+	F( 160000000,	gpll0,	5,	0,	0),
+	F( 177780000,	gpll0,	4.5,	0,	0),
+	F( 200000000,	gpll0,	4,	0,	0),
+	F( 266670000,	gpll0,	3,	0,	0),
+	F( 308570000,	gpll6,	3.5,	0,	0),
+	F( 320000000,	gpll0,	2.5,	0,	0),
+	F( 360000000,	gpll6,	3,	0,	0),
+	F_END
+};
+
+static struct rcg_clk vfe0_clk_src = {
+	.cmd_reg      = (uint32_t *) VFE0_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) VFE0_CMD_RCGR_CFG,
+	.set_rate     = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl     = ftbl_gcc_camss_vfe0_1_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "vfe0_clk_src",
+		.ops = &clk_ops_rcg,
+	},
+};
+
+static struct rcg_clk vfe1_clk_src = {
+	.cmd_reg      = (uint32_t *) VFE1_CMD_RCGR,
+	.cfg_reg      = (uint32_t *) VFE1_CMD_RCGR_CFG,
+	.set_rate     = clock_lib2_rcg_set_rate_hid,
+	.freq_tbl     = ftbl_gcc_camss_vfe0_1_clk,
+	.current_freq = &rcg_dummy_freq,
+	.c = {
+		.dbg_name = "vfe1_clk_src",
+		.ops = &clk_ops_rcg,
+	},
+};
+
+static struct branch_clk gcc_camss_vfe0_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_VFE0_CBCR,
+	.parent = &vfe0_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_vfe0_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi_vfe0_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_CSI_VFE0_CBCR,
+	.parent = &vfe0_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi_vfe0_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_csi_vfe1_clk = {
+	.cbcr_reg = (uint32_t *)CAMSS_CSI_VFE1_CBCR,
+	.parent = &vfe1_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_csi_vfe1_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_vfe_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_VFE_AHB_CBCR,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_vfe_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_vfe_axi_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_VFE_AXI_CBCR,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_vfe_axi_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_vfe1_ahb_clk = {
+	.cbcr_reg = (uint32_t *)CAMSS_VFE1_AHB_CBCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_vfe1_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_vfe1_axi_clk = {
+	.cbcr_reg = (uint32_t *)CAMSS_VFE1_AXI_CBCR,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_vfe1_axi_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_vfe1_clk = {
+	.cbcr_reg = (uint32_t *)CAMSS_VFE1_CBCR,
+	.parent = &vfe1_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_vfe1_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct branch_clk gcc_camss_micro_ahb_clk = {
+	.cbcr_reg = (uint32_t *) CAMSS_MICRO_AHB_CBCR,
+	//.bcr_reg =  (uint32_t *) CAMSS_MICRO_BCR,
+	.parent = &camss_top_ahb_clk_src.c,
+	.has_sibling = 1,
+	.c = {
+		.dbg_name = "gcc_camss_micro_ahb_clk",
+		.ops = &clk_ops_branch,
+	},
+};
+
+static struct vote_clk gcc_smmu_cfg_clk = {
+	.cbcr_reg = (uint32_t *)SMMU_CFG_CBCR,
+	.vote_reg = (uint32_t *)APCS_SMMU_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(12),
+	.c = {
+		.dbg_name = "gcc_smmu_cfg_clk",
+		.ops = &clk_ops_vote,
+	},
+};
+
+static struct vote_clk gcc_apss_tcu_clk = {
+	.cbcr_reg = (uint32_t *)APSS_TCU_CBCR,
+	.vote_reg = (uint32_t *)APCS_SMMU_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(1),
+	.c = {
+		.dbg_name = "gcc_apss_tcu_clk",
+		.ops = &clk_ops_vote,
+	},
+};
+
+#endif
 /* Clock lookup table */
 static struct clk_lookup msm_clocks_8952[] =
 {
+#ifdef EARLY_CAMERA_SUPPORT
+	CLK_LOOKUP("gpll6_clk_src",  gpll6_clk_src.c),
+#endif
 	CLK_LOOKUP("sdc1_iface_clk", gcc_sdcc1_ahb_clk.c),
 	CLK_LOOKUP("sdc1_core_clk",  gcc_sdcc1_apps_clk.c),
 
@@ -621,6 +1150,60 @@ static struct clk_lookup msm_clocks_8952[] =
 	CLK_LOOKUP("ce1_axi_clk",  gcc_ce1_axi_clk.c),
 	CLK_LOOKUP("ce1_core_clk", gcc_ce1_clk.c),
 	CLK_LOOKUP("ce1_src_clk",  ce1_clk_src.c),
+
+#ifdef EARLY_CAMERA_SUPPORT
+	CLK_LOOKUP("gcc_camss_mclk0_clk",  gcc_camss_mclk0_clk.c),
+	CLK_LOOKUP("mclk0_clk_src",        mclk0_clk_src.c),
+	CLK_LOOKUP("gcc_camss_mclk1_clk",  gcc_camss_mclk1_clk.c),
+	CLK_LOOKUP("mclk1_clk_src",        mclk1_clk_src.c),
+	CLK_LOOKUP("gcc_camss_mclk2_clk",  gcc_camss_mclk2_clk.c),
+	CLK_LOOKUP("mclk2_clk_src",        mclk2_clk_src.c),
+
+	CLK_LOOKUP("camss_top_ahb_clk_src",     camss_top_ahb_clk_src.c),
+	CLK_LOOKUP("gcc_camss_top_ahb_clk",     gcc_camss_top_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_ispif_ahb_clk",   gcc_camss_ispif_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_ahb_clk",         gcc_camss_ahb_clk.c),
+
+	CLK_LOOKUP("csi0phytimer_clk_src",       csi0phytimer_clk_src.c),
+	CLK_LOOKUP("gcc_camss_csi0phytimer_clk", gcc_camss_csi0phytimer_clk.c),
+	CLK_LOOKUP("csi1phytimer_clk_src",       csi1phytimer_clk_src.c),
+	CLK_LOOKUP("gcc_camss_csi1phytimer_clk", gcc_camss_csi1phytimer_clk.c),
+	CLK_LOOKUP("csi0_clk_src",               csi0_clk_src.c),
+	CLK_LOOKUP("gcc_camss_csi0phy_clk",      gcc_camss_csi0phy_clk.c),
+	CLK_LOOKUP("csi1_clk_src",               csi1_clk_src.c),
+	CLK_LOOKUP("gcc_camss_csi1phy_clk",      gcc_camss_csi1phy_clk.c),
+
+	CLK_LOOKUP("gcc_camss_csi0_ahb_clk",      gcc_camss_csi0_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_csi0_clk",          gcc_camss_csi0_clk.c),
+	CLK_LOOKUP("gcc_camss_csi0pix_clk",       gcc_camss_csi0pix_clk.c),
+	CLK_LOOKUP("gcc_camss_csi0rdi_clk",       gcc_camss_csi0rdi_clk.c),
+
+	CLK_LOOKUP("gcc_camss_csi1_ahb_clk",      gcc_camss_csi1_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_csi1_clk",          gcc_camss_csi1_clk.c),
+	CLK_LOOKUP("gcc_camss_csi1pix_clk",       gcc_camss_csi1pix_clk.c),
+	CLK_LOOKUP("gcc_camss_csi1rdi_clk",       gcc_camss_csi1rdi_clk.c),
+
+	CLK_LOOKUP("cci_clk_src",                 cci_clk_src.c),
+	CLK_LOOKUP("gcc_camss_cci_ahb_clk",       gcc_camss_cci_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_cci_clk",           gcc_camss_cci_clk.c),
+
+	CLK_LOOKUP("vfe0_clk_src", vfe0_clk_src.c),
+	CLK_LOOKUP("gcc_camss_vfe0_clk", gcc_camss_vfe0_clk.c),
+	CLK_LOOKUP("gcc_camss_csi_vfe0_clk", gcc_camss_csi_vfe0_clk.c),
+	CLK_LOOKUP("gcc_camss_vfe_ahb_clk", gcc_camss_vfe_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_vfe_axi_clk", gcc_camss_vfe_axi_clk.c),
+
+	CLK_LOOKUP("vfe1_clk_src", vfe1_clk_src.c),
+	CLK_LOOKUP("gcc_camss_vfe1_clk", gcc_camss_vfe1_clk.c),
+	CLK_LOOKUP("gcc_camss_csi_vfe1_clk", gcc_camss_csi_vfe1_clk.c),
+	CLK_LOOKUP("gcc_camss_vfe1_ahb_clk", gcc_camss_vfe1_ahb_clk.c),
+	CLK_LOOKUP("gcc_camss_vfe1_axi_clk", gcc_camss_vfe1_axi_clk.c),
+	CLK_LOOKUP("gcc_camss_micro_ahb_clk", gcc_camss_micro_ahb_clk.c),
+
+	CLK_LOOKUP("gcc_smmu_cfg_clk", gcc_smmu_cfg_clk.c),
+	CLK_LOOKUP("gcc_apss_tcu_clk", gcc_apss_tcu_clk.c),
+#endif
+
 };
 
 void msm8956_clock_override()

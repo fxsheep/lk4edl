@@ -159,6 +159,102 @@
 #define USB_HS_SYSTEM_CFG_RCGR             (CLK_CTL_BASE + 0x41014)
 
 
+#ifdef EARLY_CAMERA_SUPPORT
+/*camera mclk0 */
+#define MCLK0_CMD_RCGR                      (CLK_CTL_BASE + 0x52000)
+#define MCLK0_CFG_RCGR                      (CLK_CTL_BASE + 0x52004)
+#define MCLK0_CFG_M_RCGR                    (CLK_CTL_BASE + 0x52008)
+#define MCLK0_CFG_N_RCGR                    (CLK_CTL_BASE + 0x5200C)
+#define MCLK0_CFG_D_RCGR                    (CLK_CTL_BASE + 0x52010)
+#define CAMSS_MCLK0_CBCR                    (CLK_CTL_BASE + 0x52018)
+
+/*camera mclk1 */
+#define MCLK1_CMD_RCGR                      (CLK_CTL_BASE + 0x53000)
+#define MCLK1_CFG_RCGR                      (CLK_CTL_BASE + 0x53004)
+#define MCLK1_CFG_M_RCGR                    (CLK_CTL_BASE + 0x53008)
+#define MCLK1_CFG_N_RCGR                    (CLK_CTL_BASE + 0x5300C)
+#define MCLK1_CFG_D_RCGR                    (CLK_CTL_BASE + 0x53010)
+#define CAMSS_MCLK1_CBCR                    (CLK_CTL_BASE + 0x53018)
+
+/*camera mclk2 */
+#define MCLK2_CMD_RCGR                      (CLK_CTL_BASE + 0x5C000)
+#define MCLK2_CFG_RCGR                      (CLK_CTL_BASE + 0x5C004)
+#define MCLK2_CFG_M_RCGR                    (CLK_CTL_BASE + 0x5C008)
+#define MCLK2_CFG_N_RCGR                    (CLK_CTL_BASE + 0x5C00C)
+#define MCLK2_CFG_D_RCGR                    (CLK_CTL_BASE + 0x5C010)
+#define CAMSS_MCLK2_CBCR                    (CLK_CTL_BASE + 0x5C018)
+
+/*camera clk */
+#define CAMSS_TOP_AHB_CMD_RCGR              (CLK_CTL_BASE + 0x5A000)
+#define CAMSS_TOP_AHB_CMD_RCGR_CFG          (CLK_CTL_BASE + 0x5A004)
+#define CAMSS_TOP_AHB_CMD_RCGR_M            (CLK_CTL_BASE + 0x5A008)
+#define CAMSS_TOP_AHB_CMD_RCGR_N            (CLK_CTL_BASE + 0x5A00C)
+#define CAMSS_TOP_AHB_CMD_RCGR_D            (CLK_CTL_BASE + 0x5A010)
+
+#define CAMSS_TOP_AHB_CBCR                  (CLK_CTL_BASE + 0x5A014)
+#define CAMSS_ISPIF_AHB_CBCR                (CLK_CTL_BASE + 0x50004)
+#define CAMSS_AHB_CBCR                      (CLK_CTL_BASE + 0x56004)
+
+/*camera csi0*/
+#define CSI0PHYTIMER_CMD_RCGR               (CLK_CTL_BASE + 0x4E000)
+#define CSI0PHYTIMER_CMD_RCGR_CFG           (CLK_CTL_BASE + 0x4E004)
+#define CAMSS_CSI0PHYTIMER_CBCR             (CLK_CTL_BASE + 0x4E01C)
+#define CSI0_CMD_RCGR                       (CLK_CTL_BASE + 0x4E020)
+#define CSI0_CMD_RCGR_CFG                   (CLK_CTL_BASE + 0x4E024)
+#define CAMSS_CSI0_CBCR                     (CLK_CTL_BASE + 0x4E03C)
+#define CAMSS_CSI0_AHB_CBCR                 (CLK_CTL_BASE + 0x4E040)
+#define CAMSS_CSI0PHY_CBCR                  (CLK_CTL_BASE + 0x4E048)
+#define CAMSS_CSI0RDI_CBCR                  (CLK_CTL_BASE + 0x4E050)
+#define CAMSS_CSI0PIX_CBCR                  (CLK_CTL_BASE + 0x4E058)
+
+/*camera csi1*/
+#define CSI1PHYTIMER_CMD_RCGR               (CLK_CTL_BASE + 0x4F000)
+#define CSI1PHYTIMER_CMD_RCGR_CFG           (CLK_CTL_BASE + 0x4F004)
+#define CSI1_CMD_RCGR                       (CLK_CTL_BASE + 0x4F020)
+#define CSI1_CMD_RCGR_CFG                   (CLK_CTL_BASE + 0x4F024)
+#define CAMSS_CSI1_CBCR                     (CLK_CTL_BASE + 0x4F03C)
+#define CAMSS_CSI1PHYTIMER_CBCR             (CLK_CTL_BASE + 0x4F01C)
+#define CAMSS_CSI1_AHB_CBCR                 (CLK_CTL_BASE + 0x4F040)
+#define CAMSS_CSI1PHY_CBCR                  (CLK_CTL_BASE + 0x4F048)
+#define CAMSS_CSI1RDI_CBCR                  (CLK_CTL_BASE + 0x4F050)
+#define CAMSS_CSI1PIX_CBCR                  (CLK_CTL_BASE + 0x4F058)
+
+/*camera cci clk*/
+#define CCI_CMD_RCGR                        (CLK_CTL_BASE + 0x51000)
+#define CCI_CMD_RCGR_CFG                    (CLK_CTL_BASE + 0x51004)
+#define CCI_CMD_RCGR_M                      (CLK_CTL_BASE + 0x51008)
+#define CCI_CMD_RCGR_N                      (CLK_CTL_BASE + 0x5100C)
+#define CCI_CMD_RCGR_D                      (CLK_CTL_BASE + 0x51010)
+
+#define CAMSS_CCI_CBCR                      (CLK_CTL_BASE + 0x51018)
+#define CAMSS_CCI_AHB_CBCR                  (CLK_CTL_BASE + 0x5101C)
+
+/*vfe 0 clk*/
+#define VFE0_CMD_RCGR                       (CLK_CTL_BASE + 0x58000)
+#define VFE0_CMD_RCGR_CFG                   (CLK_CTL_BASE + 0x58004)
+#define CAMSS_VFE0_CBCR                     (CLK_CTL_BASE + 0x58038)
+#define CAMSS_VFE_AHB_CBCR                  (CLK_CTL_BASE + 0x58044)
+#define CAMSS_VFE_AXI_CBCR                  (CLK_CTL_BASE + 0x58048)
+#define CAMSS_CSI_VFE0_CBCR                 (CLK_CTL_BASE + 0x58050)
+
+/*vfe 1 clk*/
+#define VFE1_CMD_RCGR                       (CLK_CTL_BASE + 0x58054)
+#define VFE1_CMD_RCGR_CFG                   (CLK_CTL_BASE + 0x58058)
+#define CAMSS_VFE1_CBCR                     (CLK_CTL_BASE + 0x5805C)
+#define CAMSS_VFE1_AHB_CBCR                 (CLK_CTL_BASE + 0x58060)
+#define CAMSS_VFE1_AXI_CBCR                 (CLK_CTL_BASE + 0x58068)
+#define CAMSS_CSI_VFE1_CBCR                 (CLK_CTL_BASE + 0x58074)
+
+#define CAMSS_MICRO_AHB_CBCR		        (CLK_CTL_BASE + 0x5600C)
+#define CAMSS_MICRO_BCR			            (CLK_CTL_BASE + 0x56008)
+
+#define SMMU_CFG_CBCR			            (CLK_CTL_BASE + 0x12038)
+#define APSS_TCU_CBCR			            (CLK_CTL_BASE + 0x12018)
+#define APCS_SMMU_CLOCK_BRANCH_ENA_VOTE	    (CLK_CTL_BASE + 0x4500C)
+
+
+#endif
+
 /* RPMB send receive buffer needs to be mapped
  * as device memory, define the start address
  * and size in MB
@@ -490,91 +586,5 @@
 #define APPS_WDOG_BARK_VAL_REG      0x0B017010
 #define APPS_WDOG_BITE_VAL_REG      0x0B017014
 #define APPS_WDOG_RESET_REG         0x0B017008
-
-#ifdef EARLY_CAMERA_SUPPORT
-#define MSM_MMSS_CLK_CTL_BASE       0x8C0000
-#define MMSS_MISC_AHB_CBCR          (MSM_MMSS_CLK_CTL_BASE + 0x5018)
-#ifdef MDP_CTL_2_BASE
-#undef MDP_CTL_2_BASE
-#endif
-
-#define MDP_CTL_2_BASE                          REG_MDP(0x2400)
-/* HDMI reg addresses */
-#define HDMI_BASE               0x9A0000
-#define REG_HDMI(off)           (HDMI_BASE + (off))
-
-#define HDMI_ACR_32_0           REG_HDMI(0xC4)
-#define HDMI_ACR_32_1           REG_HDMI(0xC8)
-#define HDMI_ACR_44_0           REG_HDMI(0xCC)
-#define HDMI_ACR_44_1           REG_HDMI(0xD0)
-#define HDMI_ACR_48_0           REG_HDMI(0xD4)
-#define HDMI_ACR_48_1           REG_HDMI(0xD8)
-#define HDMI_AUDIO_PKT_CTRL2    REG_HDMI(0x44)
-#define HDMI_ACR_PKT_CTRL       REG_HDMI(0x24)
-#define HDMI_INFOFRAME_CTRL0    REG_HDMI(0x2C)
-#define HDMI_INFOFRAME_CTRL1    REG_HDMI(0x30)
-#define HDMI_AUDIO_INFO0        REG_HDMI(0xE4)
-#define HDMI_AUDIO_INFO1        REG_HDMI(0xE8)
-#define HDMI_AUDIO_PKT_CTRL     REG_HDMI(0x20)
-#define HDMI_VBI_PKT_CTRL       REG_HDMI(0x28)
-#define HDMI_GEN_PKT_CTRL       REG_HDMI(0x34)
-#define HDMI_GC                 REG_HDMI(0x40)
-#define HDMI_AUDIO_CFG          REG_HDMI(0x1D0)
-
-#define HDMI_DDC_SPEED          REG_HDMI(0x220)
-#define HDMI_DDC_SETUP          REG_HDMI(0x224)
-#define HDMI_DDC_REF            REG_HDMI(0x27C)
-#define HDMI_DDC_DATA           REG_HDMI(0x238)
-#define HDMI_DDC_TRANS0         REG_HDMI(0x228)
-#define HDMI_DDC_TRANS1         REG_HDMI(0x22C)
-#define HDMI_DDC_TRANS2         REG_HDMI(0x230)
-#define HDMI_DDC_TRANS3         REG_HDMI(0x234)
-#define HDMI_DDC_CTRL           REG_HDMI(0x20C)
-#define HDMI_DDC_INT_CTRL       REG_HDMI(0x214)
-#define HDMI_DDC_SW_STATUS      REG_HDMI(0x218)
-#define HDMI_DDC_ARBITRATION    REG_HDMI(0x210)
-#define HDMI_HW_DDC_CTRL        REG_HDMI(0x4CC)
-#define HDMI_DDC_INT_CTRL0      REG_HDMI(0x430)
-#define HDMI_DDC_INT_CTRL1      REG_HDMI(0x434)
-#define HDMI_DDC_INT_CTRL2      REG_HDMI(0x438)
-#define HDMI_DDC_INT_CTRL3      REG_HDMI(0x43C)
-#define HDMI_DDC_INT_CTRL4      REG_HDMI(0x440)
-#define HDMI_DDC_INT_CTRL5      REG_HDMI(0x444)
-#define HDMI_DDC_HW_STATUS      REG_HDMI(0x21C)
-#define HDMI_SCRAMBLER_STATUS_DDC_CTRL   REG_HDMI(0x464)
-#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL    REG_HDMI(0x468)
-#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2   REG_HDMI(0x46C)
-#define HDMI_SCRAMBLER_STATUS_DDC_STATUS        REG_HDMI(0x470)
-#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS  REG_HDMI(0x474)
-#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS2 REG_HDMI(0x478)
-
-#define HDMI_USEC_REFTIMER      REG_HDMI(0x208)
-#define HDMI_CTRL               REG_HDMI(0x000)
-#define HDMI_VERSION            REG_HDMI(0x2E4)
-#define HDMI_HPD_INT_STATUS     REG_HDMI(0x250)
-#define HDMI_HPD_INT_CTRL       REG_HDMI(0x254)
-#define HDMI_HPD_CTRL           REG_HDMI(0x258)
-#define HDMI_PHY_CTRL           REG_HDMI(0x2D4)
-#define HDMI_TOTAL              REG_HDMI(0x2C0)
-#define HDMI_ACTIVE_H           REG_HDMI(0x2B4)
-#define HDMI_ACTIVE_V           REG_HDMI(0x2B8)
-#define HDMI_V_TOTAL_F2         REG_HDMI(0x2C4)
-#define HDMI_ACTIVE_V_F2        REG_HDMI(0x2BC)
-#define HDMI_FRAME_CTRL         REG_HDMI(0x2C8)
-
-#define HDMI_AVI_INFO0          REG_HDMI(0x06C)
-#define HDMI_AVI_INFO1          REG_HDMI(0x070)
-#define HDMI_AVI_INFO2          REG_HDMI(0x074)
-#define HDMI_AVI_INFO3          REG_HDMI(0x078)
-
-#define LPASS_LPAIF_RDDMA_CTL0       0x0910D000
-#define LPASS_LPAIF_RDDMA_BASE0      0x0910D004
-#define LPASS_LPAIF_RDDMA_BUFF_LEN0  0x0910D008
-#define LPASS_LPAIF_RDDMA_PER_LEN0   0x0910D010
-#define LPASS_LPAIF_DEBUG_CTL        0x0910000C
-#endif
-
-
-
 #define APPS_WDOG_CTL_REG           0x0B017004
 #endif

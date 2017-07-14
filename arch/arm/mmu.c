@@ -29,6 +29,17 @@
 #include <arch/arm/mmu.h>
 #include <platform.h>
 
+#if SECONDARY_CPU_SUPPORT
+#include <target.h>
+#include <arch/ops.h>
+#include <stdlib.h>
+#include <qtimer.h>
+#include <target/target_camera.h>
+#include <psci.h>
+#endif
+
+#pragma GCC optimize ("O0")
+
 #if ARM_WITH_MMU
 
 #define MB (1024*1024)
@@ -94,26 +105,6 @@ void arm_mmu_init(void)
 	arm_write_cr1(arm_read_cr1() | 0x1);
 }
 
-#ifdef EARLY_CAMERA_SUPPORT
-void secondary_cpu_init(void)
-{
-	/* set some mmu specific control bits:
-	 * access flag disabled, TEX remap disabled, mmu disabled
-	 */
-	arm_write_cr1(arm_read_cr1() & ~((1<<29)|(1<<28)|(1<<0)));
-
-	/* set up the translation table base */
-	arm_write_ttbr((uint32_t)tt);
-
-	/* set up the domain access register */
-	arm_write_dacr(0x00000001);
-
-	/* turn on the mmu */
-	arm_write_cr1(arm_read_cr1() | 0x1);
-
-}
-#endif
-
 void arch_disable_mmu(void)
 {
 	/* Ensure all memory access are complete
@@ -124,4 +115,71 @@ void arch_disable_mmu(void)
 	arm_invalidate_tlb();
 }
 
+#if SECONDARY_CPU_SUPPORT
+
+/* early camera cleanup and exit */
+void secondary_cpu_exit()
+{
+	isb();
+
+	/* clean-up */
+	arch_disable_cache(UCACHE); // Disable I/D - Cache
+
+	arch_disable_mmu(); // Disable MMU
+
+	arch_disable_ints();
+
+	// Clear Cache by nop instruction
+	nop();nop();nop();nop();nop();nop();nop();nop();
+
+	dsb();
+	isb();
+
+	/* turn off secondary cpu */
+	psci_cpu_off();
+}
+
+void secondary_cpu_init(void)
+{
+	int i = 0;
+
+	/* set some mmu specific control bits:
+	 * access flag disabled, TEX remap disabled, mmu disabled
+	 */
+	arm_write_cr1(arm_read_cr1() & ~((1<<29)|(1<<28)|(1<<0)));
+
+	if (platform_use_identity_mmu_mappings())
+	{
+		/* set up an identity-mapped translation table with
+		 * strongly ordered memory type and read/write access.
+		 */
+		for (i=0; i < 4096; i++) {
+			arm_mmu_map_section(i * MB, i * MB,
+				MMU_MEMORY_TYPE_STRONGLY_ORDERED | MMU_MEMORY_AP_READ_WRITE);
+		}
+	}
+
+	platform_init_mmu_mappings();
+
+	/* set up the translation table base */
+	arm_write_ttbr((uint32_t)tt);
+
+	/* set up the domain access register */
+	arm_write_dacr(0x00000001);
+
+	/* turn on the mmu */
+	arm_write_cr1(arm_read_cr1() | 0x1);
+
+	 /* turn the cache back on */
+	arch_enable_cache(UCACHE);
+
+	/* Here is realy user application entery and excute by secondary core  */
+	early_camera_fastrvc_thread();
+
+	/* If early camera fastrvc thread exit, clean up env and regs */
+	secondary_cpu_exit();
+	return ;
+}
+
+#endif //SECONDARY_CPU_SUPPORT
 #endif // ARM_WITH_MMU

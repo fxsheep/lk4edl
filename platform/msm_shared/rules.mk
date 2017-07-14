@@ -632,9 +632,6 @@ DEFINES += DISPLAY_TYPE_MDSS=1
 			$(LOCAL_DIR)/mipi_dsc.o \
 			$(LOCAL_DIR)/mipi_dsi_phy.o \
 			$(LOCAL_DIR)/mipi_dsi_autopll.o
-ifdef ENABLE_EARLY_CAMERA_SUPPORT
-	OBJS += $(LOCAL_DIR)/mdss_hdmi.o
-endif
 endif
 
 ifeq ($(PLATFORM),msm8953)

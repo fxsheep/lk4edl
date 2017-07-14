@@ -194,7 +194,7 @@ abort_stack:
 	.skip 1024
 abort_stack_top:
 
-#if EARLYDOMAIN_SUPPORT
+#if SECONDARY_CPU_SUPPORT
 /* secondary cpu stack */
 .bss
 

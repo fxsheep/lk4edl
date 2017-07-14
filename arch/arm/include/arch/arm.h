@@ -91,7 +91,7 @@ void arm_write_mair1(uint32_t);
 void arm_write_ttbcr(uint32_t);
 void dump_fault_frame(struct arm_fault_frame *frame);
 
-#ifdef EARLY_CAMERA_SUPPORT
+#if SECONDARY_CPU_SUPPORT
 void secondary_cpu_init(void);
 #endif
 

@@ -61,13 +61,14 @@
 
 #include "target/display.h"
 
-#ifdef EARLY_CAMERA_SUPPORT
-#include <msm_panel.h>
+#if SECONDARY_CPU_SUPPORT
+#include <qtimer.h>
+#if PSCI_SUPPORT
 #include <psci.h>
-#include <target/display.h>
+#endif
+#if EARLY_CAMERA_SUPPORT
 #include <target/target_camera.h>
-#define ANIMATED_SPLAH_PARTITION "splash"
-#define ANIMATED_SPLASH_BUFFER   0x836a5580
+#endif
 #endif
 
 #if LONG_PRESS_POWER_ON
@@ -114,23 +115,8 @@ static uint32_t mmc_sdhci_base[] =
 static uint32_t  mmc_sdc_pwrctl_irq[] =
 	{ SDCC1_PWRCTL_IRQ, SDCC2_PWRCTL_IRQ };
 
-#ifdef EARLY_CAMERA_SUPPORT
-static int early_camera_enabled = 1;
+#if SECONDARY_CPU_SUPPORT
 void (*cpu_on_ep) (void);
-/* early domain initialization */
-void earlydomain_init();
-
-/* run all early domain services */
-void earlydomain_services();
-
-/* early domain cleanup and exit*/
-void earlydomain_exit();
-
-/* is charging supported */
-bool target_charging_supported();
-
-/* is charging in progress */
-bool target_charging_in_progress();
 #endif
 
 void target_early_init(void)
@@ -139,14 +125,6 @@ void target_early_init(void)
 	uart_dm_init(2, 0, BLSP1_UART1_BASE);
 #endif
 }
-
-#ifdef EARLY_CAMERA_SUPPORT
-bool mmc_read_done = false;
-bool target_is_mmc_read_done()
-{
-	return mmc_read_done;
-}
-#endif
 
 static void set_sdc_power_ctrl()
 {
@@ -664,29 +642,6 @@ int target_cont_splash_screen()
 	return splash_screen;
 }
 
-#ifdef EARLY_CAMERA_SUPPORT
-/* Returns 1 if target supports animated splash screen. */
-int target_animated_splash_screen()
-{
-	uint8_t animated_splash = 0;
-/*	if(!splash_override && !target_charging_in_progress()) {*/
-	if(!splash_override) {
-		switch(board_hardware_id()) {
-			case HW_PLATFORM_ADP:
-			case HW_PLATFORM_DRAGON:
-				dprintf(SPEW, "Target_animated_splash=1\n");
-				// enable animated splash for ADP and Dragonboard
-				animated_splash = 1;
-				break;
-			default:
-				dprintf(SPEW, "Target_animated_splash=0\n");
-				animated_splash = 0;
-		}
-	}
-	return animated_splash;
-}
-#endif
-
 void target_force_cont_splash_disable(uint8_t override)
 {
         splash_override = override;
@@ -800,400 +755,51 @@ uint32_t target_get_pmic()
 {
 	return PMIC_IS_PMI8950;
 }
-#if EARLYDOMAIN_SUPPORT
+
+
+#if SECONDARY_CPU_SUPPORT
 
 /* calls psci to turn on the secondary core */
 void enable_secondary_core()
 {
-    cpu_on_ep = &cpu_on_asm;
+	int psci_errno = 0;
+	unsigned long phy_cpuid = platform_get_secondary_cpu_num();
 
-    if (psci_cpu_on(platform_get_secondary_cpu_num(), (paddr_t)cpu_on_ep))
-    {
-        dprintf(CRITICAL, "Failed to turn on secondary CPU: %x\n", platform_get_secondary_cpu_num());
-    }
-    dprintf (INFO, "LK continue on cpu0\n");
-}
+	dprintf(INFO, "Enable secondary cpu core(cpuid = 0x%lx) start... \n",phy_cpuid);
 
-/* handles the early domain */
-void earlydomain()
-{
-    /* init and run early domain services*/
-    earlydomain_init();
+	cpu_on_ep = &cpu_on_asm;
 
-    /* run all early domain services */
-    earlydomain_services();
+	psci_errno = psci_cpu_on(phy_cpuid, (paddr_t)cpu_on_ep);
 
-    /* cleanup and exit early domain services*/
-    earlydomain_exit();
-}
-
-/* early domain initialization */
-void earlydomain_init()
-{
-    dprintf(INFO, "started early domain on secondary CPU\n");
-}
-
-/* early domain cleanup and exit */
-void earlydomain_exit()
-{
-    isb();
-
-    /* clean-up */
-    arch_disable_cache(UCACHE);
-
-    arch_disable_mmu();
-
-    dsb();
-    isb();
-
-    arch_disable_ints();
-
-    /* turn off secondary cpu */
-    psci_cpu_off();
-}
-
-enum compression_type {
-	COMPRESSION_TYPE_NONE = 0,
-	COMPRESSION_TYPE_RLE24,
-	COMPRESSION_TYPE_MAX
-};
-
-typedef struct animated_img_header {
-	unsigned char magic[LOGO_IMG_MAGIC_SIZE]; /* "SPLASH!!" */
-	uint32_t display_id;
-	uint32_t width;
-	uint32_t height;
-	uint32_t fps;
-	uint32_t num_frames;
-	uint32_t type;
-	uint32_t blocks;
-	uint32_t img_size;
-	uint32_t offset;
-	uint8_t reserved[512-44];
-} animated_img_header;
-
-#define NUM_DISPLAYS 3
-void **buffers[NUM_DISPLAYS];
-struct animated_img_header g_head[NUM_DISPLAYS];
-
-int animated_splash_screen_mmc()
-{
-	int index = INVALID_PTN;
-	unsigned long long ptn = 0;
-	struct fbcon_config *fb_display = NULL;
-	struct animated_img_header *header;
-	uint32_t blocksize, realsize, readsize;
-	void *buffer;
-	uint32_t i = 0, j = 0;
-	void *tmp;
-	void *head;
-	int ret = 0;
-
-	index = partition_get_index(ANIMATED_SPLAH_PARTITION);
-	if (index == 0) {
-		dprintf(CRITICAL, "ERROR: splash Partition table not found\n");
-		return -1;
-	}
-	ptn = partition_get_offset(index);
-	if (ptn == 0) {
-		dprintf(CRITICAL, "ERROR: splash Partition invalid\n");
-		return -1;
-	}
-
-	mmc_set_lun(partition_get_lun(index));
-
-	blocksize = mmc_get_device_blocksize();
-	if (blocksize == 0) {
-		dprintf(CRITICAL, "ERROR:splash Partition invalid blocksize\n");
-		return -1;
-	}
-	// Assume it is always for display ID 0
-	fb_display = target_display_get_fb(0);
-
-	if (!fb_display) {
-		dprintf(CRITICAL, "ERROR: fb config is not allocated\n");
-		return -1;
-	}
-
-	buffer = (void *)ANIMATED_SPLASH_BUFFER;
-	for (j = 0; j < NUM_DISPLAYS; j++)
-	{
-		head = (void *)&(g_head[j]);
-		if (mmc_read(ptn, (uint32_t *)(head), blocksize)) {
-			dprintf(CRITICAL, "ERROR: Cannot read splash image header\n");
-			return -1;
-		}
-
-		header = (animated_img_header *)head;
-		if (memcmp(header->magic, LOGO_IMG_MAGIC, 8)) {
-			dprintf(CRITICAL, "Invalid magic number in header %s %d\n",
-				header->magic, header->height);
-			ret = -1;
-			goto end;
-		}
-
-		if (header->width == 0 || header->height == 0) {
-			dprintf(CRITICAL, "Invalid height and width\n");
-			ret = -1;
-			goto end;
-		}
-
-		buffers[j] = (void **)malloc(header->num_frames*sizeof(void *));
-		if (buffers[j] == NULL) {
-			dprintf(CRITICAL, "Cant alloc mem for ptrs\n");
-			ret = -1;
-			goto end;
-		}
-		if ((header->type == COMPRESSION_TYPE_RLE24) && (header->blocks != 0)) {
-			dprintf(CRITICAL, "Compressed data not supported\n");
-			ret = 0;
-			goto end;
-		} else {
-			if ((header->width > fb_display->width) ||
-				(header->height > fb_display->height)) {
-				dprintf(CRITICAL, "Logo config greater than fb config. header->width %u"
-					" fb->width = %u header->height = %u fb->height = %u\n",
-					header->width, fb_display->width, header->height, fb_display->height);
-				ret = -1;
-				goto end;
-			}
-			dprintf(INFO, "width:%d height:%d blocks:%d imgsize:%d num_frames:%d\n", header->width,
-			header->height, header->blocks, header->img_size,header->num_frames);
-			realsize =  header->blocks * blocksize;
-			if ((realsize % blocksize) != 0)
-				readsize =  ROUNDUP(realsize, blocksize) - blocksize;
-			else
-				readsize = realsize;
-			if (blocksize == LOGO_IMG_HEADER_SIZE) {
-				if (mmc_read((ptn + LOGO_IMG_HEADER_SIZE), (uint32_t *)buffer, readsize)) {
-					dprintf(CRITICAL, "ERROR: Cannot read splash image from partition 1\n");
-					ret = -1;
-					goto end;
-				}
-			} else {
-				if (mmc_read(ptn + blocksize , (uint32_t *)buffer, realsize)) {
-					dprintf(CRITICAL, "ERROR: Cannot read splash image from partition 2\n");
-					ret = -1;
-					goto end;
-				}
-			}
-			tmp = buffer;
-			for (i = 0; i < header->num_frames; i++) {
-				buffers[j][i] = tmp;
-				tmp = tmp + header->img_size;
-			}
-
-		}
-		buffer = tmp;
-		ptn += LOGO_IMG_HEADER_SIZE + readsize;
-	}
-end:
-	return ret;
-}
-
-#if EARLYCAMERA_NO_GPIO
-
-inline bool get_reverse_camera_gpio() {
-	return TRUE;
-}
-
-#else
-
-inline bool get_reverse_camera_gpio() {
-	/* if gpio == 1, it is ON
-	   if gpio == 0, it is OFF */
-	return (1 == gpio_get(103));
-}
-
-#endif
-
-/* checks if GPIO or equivalent trigger to enable early camera is set to ON
-   If this function retuns FALSE, only animated splash may be shown.
-   This is also a check to see if early-camera/animated splash can exit*/
-bool is_reverse_camera_on() {
-	uint32_t trigger_reg = 0;
-	trigger_reg = readl_relaxed((void *)MDSS_SCRATCH_REG_2);
-	if ((FALSE == get_reverse_camera_gpio()) ||
-		(0xF5F5F5F5 == trigger_reg))
-		return FALSE; /* trigger to exit */
-	else
-		return TRUE;
-}
-
-int animated_splash() {
-	void *disp_ptr, *layer_ptr;
-	uint32_t ret = 0, k = 0, j = 0;
-	uint32_t frame_cnt[NUM_DISPLAYS];
-	struct target_display_update update[NUM_DISPLAYS];
-	struct target_layer layer[NUM_DISPLAYS];
-	struct target_display * disp;
-	struct fbcon_config *fb;
-	uint32_t sleep_time;
-	uint32_t disp_cnt = NUM_DISPLAYS;
-	uint32_t reg_value;
-	bool camera_on = FALSE;
-	bool camera_frame_on = false;
-
-	if (!buffers[0]) {
-		dprintf(CRITICAL, "Unexpected error in read\n");
-		return 0;
-	}
-	for (j = 0; j < NUM_DISPLAYS; j ++) {
-		frame_cnt[j] = 0;
-		disp_ptr = target_display_open(j);
-		if (disp_ptr == NULL) {
-			dprintf(CRITICAL, "Display open failed\n");
-			return -1;
-		}
-		disp = target_get_display_info(disp_ptr);
-		if (disp == NULL){
-			dprintf(CRITICAL, "Display info failed\n");
-			return -1;
-		}
-		layer_ptr = target_display_acquire_layer(disp_ptr, "as", kFormatRGB888);
-		if (layer_ptr == NULL){
-			dprintf(CRITICAL, "Layer acquire failed\n");
-			return -1;
-		}
-		fb = target_display_get_fb(j);
-
-		layer[j].layer = layer_ptr;
-		layer[j].z_order = 2;
-		update[j].disp = disp_ptr;
-		update[j].layer_list = &layer[j];
-		update[j].num_layers = 1;
-		layer[j].fb = fb;
-		sleep_time = 1000 / g_head[j].fps;
-		layer[j].width = fb->width;
-		layer[j].height = fb->height;
-		if (g_head[j].width < fb->width) {
-			dprintf(SPEW, "Modify width\n");
-			layer[j].width = g_head[j].width;
-		}
-		if (g_head[j].height < fb->height) {
-			dprintf(SPEW, "Modify height\n");
-			layer[j].height = g_head[j].height;
-		}
-	}
-
-	while (1) {
-		camera_on = is_reverse_camera_on();
-
-		reg_value = readl_relaxed((void *)MDSS_SCRATCH_REG_1);
-		if (0xFEFEFEFE == reg_value) {
-			//This value indicates kernel request LK to shutdown immediately
+	switch (psci_errno) {
+		case PSCI_RET_SUCCESS:
+			dprintf (INFO, "Secondary CPU(cpuid = 0x%lx) enable Success !\n",phy_cpuid);
 			break;
-		}
-		else if (0xDEADDEAD == reg_value) {
-			// This reg value means kernel is started
-			// LK should notify kernel by writing 0xDEADBEEF to
-			// MDSS_SCRATCH_REG_1 when it is ready to exit
-
-			if (0 == early_camera_enabled)
-				break;
-			else if ((1 == early_camera_enabled) &&
-					(FALSE == camera_on) && (false == camera_frame_on))
-				break;
-		}
-
-		for (j = 0; j < disp_cnt; j++) {
-			if (j == 0 && early_camera_enabled == 1) {
-				if (early_camera_on()) {
-					if(layer[j].layer) {
-						target_release_layer(&layer[j]);
-						layer[j].layer = NULL;
-					}
-					camera_frame_on = true;
-					continue;
-				} else {
-					if(!layer[j].layer) {
-						layer_ptr = target_display_acquire_layer(disp_ptr, "as", kFormatRGB888);
-						layer[j].layer = layer_ptr;
-						layer[j].z_order = 2;
-						camera_frame_on = false;
-					}
-				}
-			}
-			layer[j].fb->base = buffers[j][frame_cnt[j]];
-			layer[j].fb->format = kFormatRGB888;
-			layer[j].fb->bpp = 24;
-			ret = target_display_update(&update[j],1, j);
-			frame_cnt[j]++;
-			if (frame_cnt[j] >= g_head[j].num_frames) {
-				frame_cnt[j] = 0;
-			}
-		}
-
-		if(early_camera_enabled == 1)
-			// Rely on camera timing to flip.
-			early_camera_flip();
-		else
-			// assume all displays have the same fps
-			mdelay_optimal(sleep_time);
-		k++;
+		case PSCI_RET_NOT_SUPPORTED:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Not Support.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_INVALID_PARAMS:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Invalid Params.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_DENIED:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Denied.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_ALREADY_ON:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Already On.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_ON_PENDING:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: On Pending.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_INTERNAL_FAILURE:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Internal Failed.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_NOT_PRESENT:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Not Present.\n\n", phy_cpuid);
+			break;
+		case PSCI_RET_DISABLED:
+			dprintf(CRITICAL, "Enable Secondary CPU(cpuid=0x%lx) Failed: Disabled.\n\n", phy_cpuid);
+			break;
 	}
-	if (early_camera_enabled == 1)
-		early_camera_stop();
-	for (j = 0; j < NUM_DISPLAYS; j++) {
-		target_release_layer(&layer[j]);
-	}
-
-	return ret;
 }
 
-/* early domain services */
-void earlydomain_services()
-{
-	uint32_t ret = 0;
-	int i = 0;
-
-	dprintf(CRITICAL, "earlydomain_services: Waiting for display init to complete\n");
-
-	while((FALSE == target_display_is_init_done()) && (i < 100))
-	{
-		mdelay_optimal(10); // delay for 10ms
-		i++;
-	}
-
-	dprintf(CRITICAL, "earlydomain_services: Display init done\n");
-	// Notify Kernel that LK is running
-	writel(0xC001CAFE, MDSS_SCRATCH_REG_1);
-
-	/* starting early domain services */
-	if (early_camera_init() == -1) {
-		early_camera_enabled = 0;
-		dprintf(CRITICAL, "earlydomain_services: Early Camera exit init failed\n");
-	} else {
-		dprintf(CRITICAL, "earlydomain_services: Early Camera starting\n");
-	}
-
-	/*Create Animated splash thread
-	if target supports it*/
-	if (target_animated_splash_screen())
-	{
-		ret = animated_splash_screen_mmc();
-		mmc_read_done = true;
-		dprintf(CRITICAL, "earlydomain_services: mmc read done\n");
-		if (ret) {
-			dprintf(CRITICAL, "Error in reading memory. Skip Animated splash\n");
-		} else {
-			animated_splash();
-		}
-	}
-
-	// Notify Kernel that LK is shutdown
-	writel(0xDEADBEEF, MDSS_SCRATCH_REG_1);
-
-  /* starting early domain services */
-}
-
-#else
-
-/* stubs for early domain functions */
-void enable_secondary_core() {}
-void earlydomain() {}
-void earlydomain_init() {}
-void earlydomain_services() {}
-void earlydomain_exit() {}
-
-#endif /* EARLYDOMAIN_SUPPORT */
+#endif /* SECONDARY_CPU_SUPPORT */

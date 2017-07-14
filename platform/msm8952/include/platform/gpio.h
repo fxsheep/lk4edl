@@ -60,12 +60,6 @@
 #define GPIO_IN         BIT(0)
 #define GPIO_OUT        BIT(1)
 
-#ifdef EARLY_CAMERA_SUPPORT
-void gpio_config_blsp_i2c(uint8_t, uint8_t);
-void gpio_set(uint32_t gpio, uint32_t dir);
-int gpio_get(uint32_t gpio);
-#endif
-
 void gpio_config_uart_dm(uint8_t id);
 uint32_t gpio_status(uint32_t gpio);
 void gpio_set_dir(uint32_t gpio, uint32_t dir);
@@ -75,4 +69,8 @@ void gpio_tlmm_config(uint32_t gpio,
 			uint8_t pull,
 			uint8_t drvstr,
 			uint32_t enable);
+#ifdef EARLY_CAMERA_SUPPORT
+int gpio_get(uint32_t gpio);
+void gpio_set(uint32_t gpio, uint32_t dir);
+#endif
 #endif

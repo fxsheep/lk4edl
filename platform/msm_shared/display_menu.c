@@ -119,9 +119,7 @@ static void wait_for_exit()
 		mutex_acquire(&select_msg->msg_lock);
 	}
 	mutex_release(&select_msg->msg_lock);
-
 	is_thread_start = false;
-	fbcon_clear();
 	display_image_on_screen();
 }
 
@@ -262,6 +260,12 @@ void display_bootverify_menu_renew(struct select_msg_info *msg_info, int type)
 	unsigned int i = 0;
 	uint32_t timeout = DELAY_5SEC;
 
+#if SECONDARY_CPU_SUPPORT
+	/* If entery fastboot mode, do not show FastRVC screen */
+	if(query_fastrvc_working_status())
+		goto display_end;
+#endif
+
 	fbcon_clear();
 	memset(&msg_info->info, 0, sizeof(struct menu_info));
 
@@ -317,7 +321,9 @@ void display_bootverify_menu_renew(struct select_msg_info *msg_info, int type)
 	}
 #endif
 	display_fbcon_menu_message(str3, FBCON_COMMON_MSG, common_factor);
-
+#if SECONDARY_CPU_SUPPORT
+display_end:
+#endif
 	msg_info->info.msg_type = type;
 
 	/* Initialize the time out time */
@@ -330,6 +336,15 @@ void display_bootverify_option_menu_renew(struct select_msg_info *msg_info)
 {
 	int i = 0;
 	int len = 0;
+
+#if SECONDARY_CPU_SUPPORT
+	/* If entery fastboot mode, do not show FastRVC screen */
+	if(query_fastrvc_working_status())
+	{
+		request_fastrvc_pause_working(TRUE);
+		fbcon_clear();
+	}
+#endif
 
 	fbcon_clear();
 	memset(&msg_info->info, 0, sizeof(struct menu_info));

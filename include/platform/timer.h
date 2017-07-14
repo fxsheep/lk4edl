@@ -32,9 +32,6 @@ void udelay(unsigned usecs);
 
 uint32_t platform_tick_rate(void);
 
-#ifdef EARLY_CAMERA_SUPPORT
-void mdelay_optimal(unsigned msecs);
-#endif
 
 #endif
 

@@ -60,6 +60,7 @@
 #include <decompress.h>
 #include <platform/timer.h>
 #include <sys/types.h>
+#include <platform/gpio.h>
 #if USE_RPMB_FOR_DEVINFO
 #include <rpmb.h>
 #endif
@@ -94,6 +95,16 @@
 #include <display_menu.h>
 #include "fastboot_test.h"
 
+#ifdef EARLY_CAMERA_SUPPORT
+#include <target/target_camera.h>
+#endif
+
+#if SECONDARY_CPU_SUPPORT
+#include <psci.h>
+/* turns on the secondary core */
+void enable_secondary_core();
+#endif
+
 extern  bool target_use_signed_kernel(void);
 extern void platform_uninit(void);
 extern void target_uninit(void);
@@ -105,17 +116,10 @@ void write_device_info_mmc(device_info *dev);
 void write_device_info_flash(device_info *dev);
 static int aboot_save_boot_hash_mmc(uint32_t image_addr, uint32_t image_size);
 static int aboot_frp_unlock(char *pname, void *data, unsigned sz);
-static inline uint64_t validate_partition_size();
 bool pwr_key_is_pressed = false;
 
 /* fastboot command function pointer */
 typedef void (*fastboot_cmd_fn) (const char *, void *, unsigned);
-
-#ifdef EARLY_CAMERA_SUPPORT
-#include <target/target_camera.h>
-/* turns on the secondary core */
-void enable_secondary_core();
-#endif
 
 struct fastboot_cmd_desc {
 	char * name;
@@ -230,11 +234,7 @@ static int auth_kernel_img = 0;
 #if VBOOT_MOTA
 static device_info device = {DEVICE_MAGIC, 0, 0, 0, 0, {0}, {0},{0}};
 #else
-#ifdef EARLY_CAMERA_SUPPORT
-static device_info device = {DEVICE_MAGIC, 0, 0, 0, 0, 0, {0},{0}, {0}, 1, 0};
-#else
 static device_info device = {DEVICE_MAGIC, 0, 0, 0, 0, {0}, {0},{0}, 1};
-#endif
 #endif
 static bool is_allow_unlock = 0;
 
@@ -349,6 +349,11 @@ unsigned char *update_cmdline(const char * cmdline)
 	int have_target_boot_params = 0;
 	char *boot_dev_buf = NULL;
     bool is_mdtp_activated = 0;
+
+#if SECONDARY_CPU_SUPPORT
+    const char *boot_cpus_cmdline = " boot_cpus=0,2,3,4,5,6,7";
+#endif
+
 #if VERIFIED_BOOT
 #if !VBOOT_MOTA
     uint32_t boot_state = boot_verify_get_state();
@@ -486,6 +491,11 @@ unsigned char *update_cmdline(const char * cmdline)
 	ASSERT(target_cmdline_buf);
 	target_cmd_line_len = target_update_cmdline(target_cmdline_buf);
 	cmdline_len += target_cmd_line_len;
+#endif
+
+#if SECONDARY_CPU_SUPPORT
+	if (1/*device.early_domain_enabled*/)
+		cmdline_len += strlen(boot_cpus_cmdline);
 #endif
 
 	if (cmdline_len > 0) {
@@ -665,7 +675,14 @@ unsigned char *update_cmdline(const char * cmdline)
 			if (have_cmdline) --dst;
 			while ((*dst++ = *src++));
 		}
-
+#if SECONDARY_CPU_SUPPORT
+		if (1/*device.early_domain_enabled*/) {
+			src = boot_cpus_cmdline;
+			if (have_cmdline) --dst;
+			have_cmdline = 1;
+			while ((*dst++ = *src++));
+		}
+#endif
 		if (have_target_boot_params) {
 			if (have_cmdline) --dst;
 			src = target_boot_params;
@@ -1187,14 +1204,13 @@ int boot_linux_from_mmc(void)
 		page_mask = page_size - 1;
 	}
 
+	/* ensure commandline is terminated */
+	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
 
 	image_addr = (unsigned char *)target_get_scratch_address();
-	memcpy(image_addr, (void *)buf, page_size);
-
-	/* ensure commandline is terminated */
-        hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
@@ -1243,9 +1259,9 @@ int boot_linux_from_mmc(void)
 		dprintf(CRITICAL, "booimage  size is greater than DDR can hold\n");
 		return -1;
 	}
-	offset = page_size;
-	/* Read image without signature and header*/
-	if (mmc_read(ptn + offset, (void *)(image_addr + offset), imagesize_actual - page_size))
+
+	/* Read image without signature */
+	if (mmc_read(ptn + offset, (void *)image_addr, imagesize_actual))
 	{
 		dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 		return -1;
@@ -1585,8 +1601,8 @@ int boot_linux_from_flash(void)
 		return -1;
 	}
 
-	image_addr = (unsigned char *)target_get_scratch_address();
-	memcpy(image_addr, (void *)buf, page_size);
+	/* ensure commandline is terminated */
+	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 	/*
 	 * Update the kernel/ramdisk/tags address if the boot image header
@@ -1602,9 +1618,6 @@ int boot_linux_from_flash(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
-
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
@@ -1625,6 +1638,8 @@ int boot_linux_from_flash(void)
 	/* Authenticate Kernel */
 	if(target_use_signed_kernel() && (!device.is_unlocked))
 	{
+		image_addr = (unsigned char *)target_get_scratch_address();
+		offset = 0;
 
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
@@ -1667,9 +1682,8 @@ int boot_linux_from_flash(void)
 			dprintf(CRITICAL, "bootimage  size is greater than DDR can hold\n");
 			return -1;
 		}
-		offset = page_size;
-		/* Read image without signature and header*/
-		if (flash_read(ptn, offset, (void *)(image_addr + offset), imagesize_actual - page_size))
+		/* Read image without signature */
+		if (flash_read(ptn, offset, (void *)image_addr, imagesize_actual))
 		{
 			dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 				return -1;
@@ -2248,7 +2262,7 @@ static void set_device_unlock(int type, bool status)
 
 	/* wipe data */
 	struct recovery_message msg;
-	memset(&msg, 0, sizeof(msg));
+
 	snprintf(msg.recovery, sizeof(msg.recovery), "recovery\n--wipe_data");
 	write_misc(0, &msg, sizeof(msg));
 
@@ -2374,7 +2388,6 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
 	uint32_t sig_actual = 0;
-	uint32_t sig_size = 0;
 	struct boot_img_hdr *hdr = NULL;
 	struct kernel64_hdr *kptr = NULL;
 	char *ptr = ((char*) data);
@@ -2429,23 +2442,17 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	image_actual = ADD_OF(image_actual, ramdisk_actual);
 	image_actual = ADD_OF(image_actual, dt_actual);
 
-	/* Checking to prevent oob access in read_der_message_length */
-	if (image_actual > sz) {
-		fastboot_fail("bootimage header fields are invalid");
-		goto boot_failed;
-	}
-	sig_size = sz - image_actual;
-
 	if (target_use_signed_kernel() && (!device.is_unlocked)) {
 		/* Calculate the signature length from boot image */
 		sig_actual = read_der_message_length(
-				(unsigned char*)(data + image_actual), sig_size);
+				(unsigned char*)(data + image_actual),sz);
 		image_actual = ADD_OF(image_actual, sig_actual);
+	}
 
-		if (image_actual > sz) {
-			fastboot_fail("bootimage header fields are invalid");
-			goto boot_failed;
-		}
+	/* sz should have atleast raw boot image */
+	if (image_actual > sz) {
+		fastboot_fail("bootimage: incomplete or not signed");
+		goto boot_failed;
 	}
 
 	// Initialize boot state before trying to verify boot.img
@@ -2728,6 +2735,14 @@ void cmd_erase(const char *arg, void *data, unsigned sz)
 		cmd_erase_mmc(arg, data, sz);
 	else
 		cmd_erase_nand(arg, data, sz);
+}
+
+static uint32_t aboot_get_secret_key()
+{
+	/* 0 is invalid secret key, update this implementation to return
+	 * device specific unique secret key
+	 */
+	return 0;
 }
 
 void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
@@ -3323,13 +3338,6 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptable *ptable;
 	unsigned extra = 0;
 	uint64_t partition_size = 0;
-	unsigned bytes_to_round_page = 0;
-	unsigned rounded_size = 0;
-
-	if((uintptr_t)data > (UINT_MAX - sz)) {
-		fastboot_fail("Cannot flash: image header corrupt");
-                return;
-        }
 
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
@@ -3346,10 +3354,8 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	if (!strcmp(ptn->name, "boot") || !strcmp(ptn->name, "recovery")) {
-		if((sz > BOOT_MAGIC_SIZE) && (!memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE))) {
-			dprintf(INFO, "Verified the BOOT_MAGIC in image header  \n");
-		} else {
-			fastboot_fail("Image is not a boot image");
+		if (memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
+			fastboot_fail("image is not a boot image");
 			return;
 		}
 	}
@@ -3360,28 +3366,14 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		|| !strcmp(ptn->name, "recoveryfs")
 		|| !strcmp(ptn->name, "modem"))
 		extra = 1;
-	else {
-		rounded_size = ROUNDUP(sz, page_size);
-		bytes_to_round_page = rounded_size - sz;
-		if (bytes_to_round_page) {
-			if (((uintptr_t)data + sz ) > (UINT_MAX - bytes_to_round_page)) {
-				fastboot_fail("Integer overflow detected");
-				return;
-			}
-			if (((uintptr_t)data + sz + bytes_to_round_page) >
-				((uintptr_t)target_get_scratch_address() + target_get_max_flash_size())) {
-				fastboot_fail("Buffer size is not aligned to page_size");
-				return;
-			}
-			else {
-				memset(data + sz, 0, bytes_to_round_page);
-				sz = rounded_size;
-			}
-		}
-	}
+	else
+		sz = ROUND_TO_PAGE(sz, page_mask);
 
-	/*Checking partition_size for the possible integer overflow */
-	partition_size = validate_partition_size(ptn);
+	partition_size = (uint64_t)ptn->length * (uint64_t)flash_num_pages_per_blk() *  (uint64_t)flash_page_size();
+	if (partition_size > UINT_MAX) {
+		fastboot_fail("Invalid partition size");
+		return;
+	}
 
 	if (sz > partition_size) {
 		fastboot_fail("Image size too large");
@@ -3389,8 +3381,7 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	dprintf(INFO, "writing %d bytes to '%s'\n", sz, ptn->name);
-	if ((sz > UBI_EC_HDR_SIZE) &&
-		(!memcmp((void *)data, UBI_MAGIC, UBI_MAGIC_SIZE))) {
+	if (!memcmp((void *)data, UBI_MAGIC, UBI_MAGIC_SIZE)) {
 		if (flash_ubi_img(ptn, data, sz)) {
 			fastboot_fail("flash write failure");
 			return;
@@ -3404,18 +3395,6 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	dprintf(INFO, "partition '%s' updated\n", ptn->name);
 	fastboot_okay("");
 }
-
-
-static inline uint64_t validate_partition_size(struct ptentry *ptn)
-{
-	if (ptn->length && flash_num_pages_per_blk() && page_size) {
-		if ((ptn->length < ( UINT_MAX / flash_num_pages_per_blk())) && ((ptn->length * flash_num_pages_per_blk()) < ( UINT_MAX / page_size))) {
-			return ptn->length * flash_num_pages_per_blk() * page_size;
-		}
-        }
-	return 0;
-}
-
 
 void cmd_flash(const char *arg, void *data, unsigned sz)
 {
@@ -3528,7 +3507,7 @@ void cmd_oem_unlock_go(const char *arg, void *data, unsigned sz)
 
 		/* wipe data */
 		struct recovery_message msg;
-	        memset(&msg, 0, sizeof(msg));
+
 		snprintf(msg.recovery, sizeof(msg.recovery), "recovery\n--wipe_data");
 		write_misc(0, &msg, sizeof(msg));
 
@@ -3540,24 +3519,20 @@ void cmd_oem_unlock_go(const char *arg, void *data, unsigned sz)
 
 static int aboot_frp_unlock(char *pname, void *data, unsigned sz)
 {
-	int ret=1;
-	bool authentication_success=false;
+	int ret = 1;
+	uint32_t secret_key;
+	char seckey_buffer[MAX_RSP_SIZE];
 
-	/*
-		Authentication method not  implemented.
-
-		OEM to implement, authentication system which on successful validataion,
-		calls write_allow_oem_unlock() with is_allow_unlock.
-	*/
-#if 0
-	authentication_success = oem_specific_auth_mthd();
-#endif
-
-	if (authentication_success)
+	secret_key = aboot_get_secret_key();
+	if (secret_key)
 	{
-		is_allow_unlock = true;
-		write_allow_oem_unlock(is_allow_unlock);
-		ret = 0;
+		snprintf((char *) seckey_buffer, MAX_RSP_SIZE, "%x", secret_key);
+		if (!memcmp((void *)data, (void *)seckey_buffer, sz))
+		{
+			is_allow_unlock = true;
+			write_allow_oem_unlock(is_allow_unlock);
+			ret = 0;
+		}
 	}
 	return ret;
 }
@@ -3674,17 +3649,6 @@ int splash_screen_flash()
 		}
 
 		uint8_t *base = (uint8_t *) fb_display->base;
-		uint32_t fb_size = ROUNDUP(fb_display->width *
-					fb_display->height *
-					(fb_display->bpp / 8), 4096);
-		uint32_t splash_size = ((((header->width * header->height *
-					fb_display->bpp/8) + 511) >> 9) << 9);
-
-		if (splash_size > fb_size) {
-			dprintf(CRITICAL, "ERROR: Splash image size invalid\n");
-			return -1;
-		}
-
 		if (flash_read(ptn + LOGO_IMG_HEADER_SIZE, 0,
 			(uint32_t *)base,
 			((((header->width * header->height * fb_display->bpp/8) + 511) >> 9) << 9))) {
@@ -3757,15 +3721,6 @@ int splash_screen_mmc()
 			if ((header->width != fb_display->width)
 						|| (header->height != fb_display->height))
 				fbcon_clear();
-
-			uint32_t fb_size = ROUNDUP(fb_display->width *
-					fb_display->height *
-					(fb_display->bpp / 8), 4096);
-
-			if (readsize > fb_size) {
-				dprintf(CRITICAL, "ERROR: Splash image size invalid\n");
-				return -1;
-			}
 
 			if (mmc_read(ptn + blocksize, (uint32_t *)(base + blocksize), readsize)) {
 				dprintf(CRITICAL, "ERROR: Cannot read splash image from partition\n");
@@ -4007,15 +3962,23 @@ void aboot_init(const struct app_descriptor *app)
 	read_device_info(&device);
 	read_allow_oem_unlock(&device);
 
-#ifdef EARLY_CAMERA_SUPPORT
-        /* enable secondary core for early domain services */
-        if (device.early_domain_enabled) {
-                if (device.early_camera_enabled) {
-                        set_early_camera_enabled(TRUE);
-                        target_early_camera_init();
-                }
-                enable_secondary_core();
-        }
+#if USE_PON_REBOOT_REG
+	reboot_mode = check_hard_reboot_mode();
+#else
+	reboot_mode = check_reboot_mode();
+#endif
+
+#if SECONDARY_CPU_SUPPORT
+
+	/* enable secondary core for early domain services */
+	if((1/*device.early_domain_enabled*/) &&
+		(reboot_mode != RECOVERY_MODE && reboot_mode != FASTBOOT_MODE))
+	{
+		bs_set_timestamp(BS_EARLY_DOMAIN_START);
+		enable_secondary_core();
+		mdelay(10);
+		dprintf(INFO, "enable secondary core compilete!\n\n");
+	}
 #endif
 
 	/* Display splash screen if enabled */
@@ -4045,15 +4008,6 @@ void aboot_init(const struct app_descriptor *app)
 #endif
 #endif
 
-#ifdef EARLY_CAMERA_SUPPORT
-	while ((device.early_domain_enabled)
-		&& (TRUE == target_animated_splash_screen())
-		&& (FALSE == target_is_mmc_read_done()))
-	{
-		mdelay_optimal(10);
-	}
-#endif
-	
 	target_serialno((unsigned char *) sn_buf);
 	dprintf(SPEW,"serial number: %s\n",sn_buf);
 
@@ -4088,11 +4042,6 @@ void aboot_init(const struct app_descriptor *app)
 		boot_into_fastboot = true;
 	#endif
 
-#if USE_PON_REBOOT_REG
-	reboot_mode = check_hard_reboot_mode();
-#else
-	reboot_mode = check_reboot_mode();
-#endif
 	if (reboot_mode == RECOVERY_MODE)
 	{
 		boot_into_recovery = 1;

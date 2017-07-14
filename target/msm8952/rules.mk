@@ -7,7 +7,7 @@ INCLUDES += -I$(LK_TOP_DIR)/app/aboot
 PLATFORM := msm8952
 
 MEMBASE := 0x8F600000 # SDRAM
-MEMSIZE := 0x00300000 # 3MB
+MEMSIZE := 0x00A00000 # 10MB
 
 BASE_ADDR        := 0x80000000
 SCRATCH_ADDR     := 0xA0100000
@@ -42,11 +42,6 @@ OBJS += \
 	$(LOCAL_DIR)/meminfo.o \
 	$(LOCAL_DIR)/target_display.o \
 	$(LOCAL_DIR)/oem_panel.o
-ifeq ($(ENABLE_EARLY_CAMERA_SUPPORT),1)
-OBJS += \
-	$(LOCAL_DIR)/target_camera.o \
-	$(LOCAL_DIR)/target_camera_config.o
-endif
 ifeq ($(ENABLE_SMD_SUPPORT),1)
 OBJS += \
 	$(LOCAL_DIR)/regulator.o
@@ -54,4 +49,12 @@ endif
 ifeq ($(ENABLE_MDTP_SUPPORT),1)
 OBJS += \
 	$(LOCAL_DIR)/mdtp_defs.o
+endif
+ifeq ($(ENABLE_EARLY_CAMERA_SUPPORT),1)
+OBJS += \
+       $(LOCAL_DIR)/target_camera.o \
+       $(LOCAL_DIR)/target_camera_csiphy.o \
+       $(LOCAL_DIR)/target_camera_csid.o \
+       $(LOCAL_DIR)/target_camera_ispif.o \
+       $(LOCAL_DIR)/target_camera_isp.o
 endif
