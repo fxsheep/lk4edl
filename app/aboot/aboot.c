@@ -105,6 +105,7 @@ void write_device_info_mmc(device_info *dev);
 void write_device_info_flash(device_info *dev);
 static int aboot_save_boot_hash_mmc(uint32_t image_addr, uint32_t image_size);
 static int aboot_frp_unlock(char *pname, void *data, unsigned sz);
+static inline uint64_t validate_partition_size();
 bool pwr_key_is_pressed = false;
 
 /* fastboot command function pointer */
@@ -1186,13 +1187,14 @@ int boot_linux_from_mmc(void)
 		page_mask = page_size - 1;
 	}
 
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
-
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
 
 	image_addr = (unsigned char *)target_get_scratch_address();
+	memcpy(image_addr, (void *)buf, page_size);
+
+	/* ensure commandline is terminated */
+        hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
@@ -1241,9 +1243,9 @@ int boot_linux_from_mmc(void)
 		dprintf(CRITICAL, "booimage  size is greater than DDR can hold\n");
 		return -1;
 	}
-
-	/* Read image without signature */
-	if (mmc_read(ptn + offset, (void *)image_addr, imagesize_actual))
+	offset = page_size;
+	/* Read image without signature and header*/
+	if (mmc_read(ptn + offset, (void *)(image_addr + offset), imagesize_actual - page_size))
 	{
 		dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 		return -1;
@@ -1583,8 +1585,8 @@ int boot_linux_from_flash(void)
 		return -1;
 	}
 
-	/* ensure commandline is terminated */
-	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
+	image_addr = (unsigned char *)target_get_scratch_address();
+	memcpy(image_addr, (void *)buf, page_size);
 
 	/*
 	 * Update the kernel/ramdisk/tags address if the boot image header
@@ -1600,6 +1602,9 @@ int boot_linux_from_flash(void)
 
 	kernel_actual  = ROUND_TO_PAGE(hdr->kernel_size,  page_mask);
 	ramdisk_actual = ROUND_TO_PAGE(hdr->ramdisk_size, page_mask);
+
+	/* ensure commandline is terminated */
+	hdr->cmdline[BOOT_ARGS_SIZE-1] = 0;
 
 	/* Check if the addresses in the header are valid. */
 	if (check_aboot_addr_range_overlap(hdr->kernel_addr, kernel_actual) ||
@@ -1620,8 +1625,6 @@ int boot_linux_from_flash(void)
 	/* Authenticate Kernel */
 	if(target_use_signed_kernel() && (!device.is_unlocked))
 	{
-		image_addr = (unsigned char *)target_get_scratch_address();
-		offset = 0;
 
 #if DEVICE_TREE
 #ifndef OSVERSION_IN_BOOTIMAGE
@@ -1664,8 +1667,9 @@ int boot_linux_from_flash(void)
 			dprintf(CRITICAL, "bootimage  size is greater than DDR can hold\n");
 			return -1;
 		}
-		/* Read image without signature */
-		if (flash_read(ptn, offset, (void *)image_addr, imagesize_actual))
+		offset = page_size;
+		/* Read image without signature and header*/
+		if (flash_read(ptn, offset, (void *)(image_addr + offset), imagesize_actual - page_size))
 		{
 			dprintf(CRITICAL, "ERROR: Cannot read boot image\n");
 				return -1;
@@ -2244,7 +2248,7 @@ static void set_device_unlock(int type, bool status)
 
 	/* wipe data */
 	struct recovery_message msg;
-
+	memset(&msg, 0, sizeof(msg));
 	snprintf(msg.recovery, sizeof(msg.recovery), "recovery\n--wipe_data");
 	write_misc(0, &msg, sizeof(msg));
 
@@ -2370,6 +2374,7 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	uint32_t image_actual;
 	uint32_t dt_actual = 0;
 	uint32_t sig_actual = 0;
+	uint32_t sig_size = 0;
 	struct boot_img_hdr *hdr = NULL;
 	struct kernel64_hdr *kptr = NULL;
 	char *ptr = ((char*) data);
@@ -2424,17 +2429,23 @@ void cmd_boot(const char *arg, void *data, unsigned sz)
 	image_actual = ADD_OF(image_actual, ramdisk_actual);
 	image_actual = ADD_OF(image_actual, dt_actual);
 
+	/* Checking to prevent oob access in read_der_message_length */
+	if (image_actual > sz) {
+		fastboot_fail("bootimage header fields are invalid");
+		goto boot_failed;
+	}
+	sig_size = sz - image_actual;
+
 	if (target_use_signed_kernel() && (!device.is_unlocked)) {
 		/* Calculate the signature length from boot image */
 		sig_actual = read_der_message_length(
-				(unsigned char*)(data + image_actual),sz);
+				(unsigned char*)(data + image_actual), sig_size);
 		image_actual = ADD_OF(image_actual, sig_actual);
-	}
 
-	/* sz should have atleast raw boot image */
-	if (image_actual > sz) {
-		fastboot_fail("bootimage: incomplete or not signed");
-		goto boot_failed;
+		if (image_actual > sz) {
+			fastboot_fail("bootimage header fields are invalid");
+			goto boot_failed;
+		}
 	}
 
 	// Initialize boot state before trying to verify boot.img
@@ -2717,14 +2728,6 @@ void cmd_erase(const char *arg, void *data, unsigned sz)
 		cmd_erase_mmc(arg, data, sz);
 	else
 		cmd_erase_nand(arg, data, sz);
-}
-
-static uint32_t aboot_get_secret_key()
-{
-	/* 0 is invalid secret key, update this implementation to return
-	 * device specific unique secret key
-	 */
-	return 0;
 }
 
 void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
@@ -3320,6 +3323,13 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	struct ptable *ptable;
 	unsigned extra = 0;
 	uint64_t partition_size = 0;
+	unsigned bytes_to_round_page = 0;
+	unsigned rounded_size = 0;
+
+	if((uintptr_t)data > (UINT_MAX - sz)) {
+		fastboot_fail("Cannot flash: image header corrupt");
+                return;
+        }
 
 	ptable = flash_get_ptable();
 	if (ptable == NULL) {
@@ -3336,8 +3346,10 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	if (!strcmp(ptn->name, "boot") || !strcmp(ptn->name, "recovery")) {
-		if (memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE)) {
-			fastboot_fail("image is not a boot image");
+		if((sz > BOOT_MAGIC_SIZE) && (!memcmp((void *)data, BOOT_MAGIC, BOOT_MAGIC_SIZE))) {
+			dprintf(INFO, "Verified the BOOT_MAGIC in image header  \n");
+		} else {
+			fastboot_fail("Image is not a boot image");
 			return;
 		}
 	}
@@ -3348,14 +3360,28 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 		|| !strcmp(ptn->name, "recoveryfs")
 		|| !strcmp(ptn->name, "modem"))
 		extra = 1;
-	else
-		sz = ROUND_TO_PAGE(sz, page_mask);
-
-	partition_size = (uint64_t)ptn->length * (uint64_t)flash_num_pages_per_blk() *  (uint64_t)flash_page_size();
-	if (partition_size > UINT_MAX) {
-		fastboot_fail("Invalid partition size");
-		return;
+	else {
+		rounded_size = ROUNDUP(sz, page_size);
+		bytes_to_round_page = rounded_size - sz;
+		if (bytes_to_round_page) {
+			if (((uintptr_t)data + sz ) > (UINT_MAX - bytes_to_round_page)) {
+				fastboot_fail("Integer overflow detected");
+				return;
+			}
+			if (((uintptr_t)data + sz + bytes_to_round_page) >
+				((uintptr_t)target_get_scratch_address() + target_get_max_flash_size())) {
+				fastboot_fail("Buffer size is not aligned to page_size");
+				return;
+			}
+			else {
+				memset(data + sz, 0, bytes_to_round_page);
+				sz = rounded_size;
+			}
+		}
 	}
+
+	/*Checking partition_size for the possible integer overflow */
+	partition_size = validate_partition_size(ptn);
 
 	if (sz > partition_size) {
 		fastboot_fail("Image size too large");
@@ -3363,7 +3389,8 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	}
 
 	dprintf(INFO, "writing %d bytes to '%s'\n", sz, ptn->name);
-	if (!memcmp((void *)data, UBI_MAGIC, UBI_MAGIC_SIZE)) {
+	if ((sz > UBI_EC_HDR_SIZE) &&
+		(!memcmp((void *)data, UBI_MAGIC, UBI_MAGIC_SIZE))) {
 		if (flash_ubi_img(ptn, data, sz)) {
 			fastboot_fail("flash write failure");
 			return;
@@ -3377,6 +3404,18 @@ void cmd_flash_nand(const char *arg, void *data, unsigned sz)
 	dprintf(INFO, "partition '%s' updated\n", ptn->name);
 	fastboot_okay("");
 }
+
+
+static inline uint64_t validate_partition_size(struct ptentry *ptn)
+{
+	if (ptn->length && flash_num_pages_per_blk() && page_size) {
+		if ((ptn->length < ( UINT_MAX / flash_num_pages_per_blk())) && ((ptn->length * flash_num_pages_per_blk()) < ( UINT_MAX / page_size))) {
+			return ptn->length * flash_num_pages_per_blk() * page_size;
+		}
+        }
+	return 0;
+}
+
 
 void cmd_flash(const char *arg, void *data, unsigned sz)
 {
@@ -3489,7 +3528,7 @@ void cmd_oem_unlock_go(const char *arg, void *data, unsigned sz)
 
 		/* wipe data */
 		struct recovery_message msg;
-
+	        memset(&msg, 0, sizeof(msg));
 		snprintf(msg.recovery, sizeof(msg.recovery), "recovery\n--wipe_data");
 		write_misc(0, &msg, sizeof(msg));
 
@@ -3501,20 +3540,24 @@ void cmd_oem_unlock_go(const char *arg, void *data, unsigned sz)
 
 static int aboot_frp_unlock(char *pname, void *data, unsigned sz)
 {
-	int ret = 1;
-	uint32_t secret_key;
-	char seckey_buffer[MAX_RSP_SIZE];
+	int ret=1;
+	bool authentication_success=false;
 
-	secret_key = aboot_get_secret_key();
-	if (secret_key)
+	/*
+		Authentication method not  implemented.
+
+		OEM to implement, authentication system which on successful validataion,
+		calls write_allow_oem_unlock() with is_allow_unlock.
+	*/
+#if 0
+	authentication_success = oem_specific_auth_mthd();
+#endif
+
+	if (authentication_success)
 	{
-		snprintf((char *) seckey_buffer, MAX_RSP_SIZE, "%x", secret_key);
-		if (!memcmp((void *)data, (void *)seckey_buffer, sz))
-		{
-			is_allow_unlock = true;
-			write_allow_oem_unlock(is_allow_unlock);
-			ret = 0;
-		}
+		is_allow_unlock = true;
+		write_allow_oem_unlock(is_allow_unlock);
+		ret = 0;
 	}
 	return ret;
 }
@@ -3631,6 +3674,17 @@ int splash_screen_flash()
 		}
 
 		uint8_t *base = (uint8_t *) fb_display->base;
+		uint32_t fb_size = ROUNDUP(fb_display->width *
+					fb_display->height *
+					(fb_display->bpp / 8), 4096);
+		uint32_t splash_size = ((((header->width * header->height *
+					fb_display->bpp/8) + 511) >> 9) << 9);
+
+		if (splash_size > fb_size) {
+			dprintf(CRITICAL, "ERROR: Splash image size invalid\n");
+			return -1;
+		}
+
 		if (flash_read(ptn + LOGO_IMG_HEADER_SIZE, 0,
 			(uint32_t *)base,
 			((((header->width * header->height * fb_display->bpp/8) + 511) >> 9) << 9))) {
@@ -3703,6 +3757,15 @@ int splash_screen_mmc()
 			if ((header->width != fb_display->width)
 						|| (header->height != fb_display->height))
 				fbcon_clear();
+
+			uint32_t fb_size = ROUNDUP(fb_display->width *
+					fb_display->height *
+					(fb_display->bpp / 8), 4096);
+
+			if (readsize > fb_size) {
+				dprintf(CRITICAL, "ERROR: Splash image size invalid\n");
+				return -1;
+			}
 
 			if (mmc_read(ptn + blocksize, (uint32_t *)(base + blocksize), readsize)) {
 				dprintf(CRITICAL, "ERROR: Cannot read splash image from partition\n");
