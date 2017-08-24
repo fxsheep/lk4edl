@@ -63,6 +63,7 @@ uint32_t platform_get_smem_base_addr();
 uint32_t platform_get_sclk_count(void);
 void clock_config_cdc(uint32_t interface);
 int platform_is_msm8939();
+uint64_t platform_get_ddr_start();
 int platform_is_msm8909();
 int platform_is_msm8992();
 int platform_is_msm8937();
