@@ -63,7 +63,6 @@ uint32_t platform_get_smem_base_addr();
 uint32_t platform_get_sclk_count(void);
 void clock_config_cdc(uint32_t interface);
 int platform_is_msm8939();
-uint64_t platform_get_ddr_start();
 int platform_is_msm8909();
 int platform_is_msm8992();
 int platform_is_msm8937();
@@ -90,6 +89,35 @@ bool platform_is_mdmcalifornium();
 void display_camera_on_screen(uint32_t addr,int flag);
 void display_camera_default_image();
 #if SECONDARY_CPU_SUPPORT
+
+/*
+camera display notify reg define
+---------------------------------------------------------------------------------
+|  pingpong status   |  notify status    |  display status   |   camera status  |
+---------------------------------------------------------------------------------
+1,camera status
+0x10 => FRVC_CAMERA_IS_ENABLED
+0x22 => FRVC_CAMERA_IS_WORKING
+0x34 => FRVC_CAMERA_IS_DONE
+
+2,display status
+0x46 => FRVC_DISPLAY_IS_ENABLED
+0x58 => FRVC_DISPLAY_IS_WORKING
+0x6a => FRVC_DISPLAY_IS_DONE
+0x7c => FRVC_NOTIFY_ANDROID_SHOW_CAMERA
+
+3,notify status
+0x8d => KERNEL_REQUEST_EXIT_FRVC
+0x9e => KERNEL_REQUEST_STOP_FRVC
+0xaf => FRVC_NOTIFY_KERNEL_WAIT_EXIT
+0xb0 => FRVC_NOTIFY_KERNEL_EXIT_DONE
+
+4,pingpong status
+0xc2 => PING_SET
+0xd4 => PONG_SET
+*/
+#define FRVC_SHARED_MEM_BASE                  (MSM_SHARED_IMEM_BASE + 0x680) // base = 0x08600000
+#define FRVC_CAMERA_STATUS_REG                (FRVC_SHARED_MEM_BASE+0x8) /* Camera Status */
 /*
 *******************************************************************************
 ** MDSS_SCRATCH_REG_0:  MDSS Registers
@@ -100,12 +128,9 @@ void display_camera_default_image();
 ** FRVC_CAMERA_IS_DONE: Camera using complete.
 *******************************************************************************
 */
-#define FRVC_SHARED_MEM_BASE (MSM_SHARED_IMEM_BASE + 0x680) // base = 0x08600000
-#define FRVC_CAMERA_STATUS_REG   (FRVC_SHARED_MEM_BASE+0x0) /* Camera Status */
-#define FRVC_CAMERA_IS_ENABLED    0x5a5a5a5a
-#define FRVC_CAMERA_IS_WORKING   0xF5F5F5F5
-#define FRVC_CAMERA_IS_DONE          0xa5a5a5a5
-
+#define FRVC_CAMERA_IS_ENABLED                0x10
+#define FRVC_CAMERA_IS_WORKING                0x22
+#define FRVC_CAMERA_IS_DONE                   0x34
 /*
 *******************************************************************************
 ** MDSS_SCRATCH_REG_1:  MDSS Registers
@@ -116,12 +141,10 @@ void display_camera_default_image();
 ** FRVC_DISPLAY_IS_DONE: Camera using complete.
 *******************************************************************************
 */
-#define FRVC_DISPLAY_STATUS_REG   (FRVC_SHARED_MEM_BASE+0x4) /* Display Status */
-#define FRVC_DISPLAY_IS_ENABLED    0x5a5a5a5a
-#define FRVC_DISPLAY_IS_WORKING   0xF5F5F5F5
-#define FRVC_DISPLAY_IS_DONE          0xa5a5a5a5
-#define FRVC_NOTIFY_ANDROID_SHOW_CAMERA      0x8B8B8B8B
-#define FRVC_NOTIFY_ANDROID_NOT_SHOW_CAMERA  0x7D7D7D7D
+#define FRVC_DISPLAY_IS_ENABLED               0x46
+#define FRVC_DISPLAY_IS_WORKING               0x58
+#define FRVC_DISPLAY_IS_DONE                  0x6a
+#define FRVC_NOTIFY_ANDROID_SHOW_CAMERA       0x7c
 /*
 *******************************************************************************
 ** MDSS_SCRATCH_REG_2:  MDSS Registers
@@ -132,20 +155,24 @@ void display_camera_default_image();
 ** KERNEL_REQUEST_TRIG_FRVC: Kernel request show FastRVC
 *******************************************************************************
 */
-#define FRVC_KERNEL_NOTIFY_LK_REG      (FRVC_SHARED_MEM_BASE+0x8) /* Notify Message */
-//This value indicates kernel request LK to shutdown immediately
-#define KERNEL_REQUEST_EXIT_FRVC       0xDEADDEAD
-#define KERNEL_REQUEST_STOP_FRVC 	0xFEFEFEFE
-#define FRVC_NOTIFY_KERNEL_WAIT_EXIT   0x8D8D8D8D
-#define FRVC_NOTIFY_KERNEL_EXIT_DONE   0x7C7C7C7C
+#define KERNEL_REQUEST_EXIT_FRVC              0x8d
+#define KERNEL_REQUEST_STOP_FRVC              0x9e
+#define FRVC_NOTIFY_KERNEL_WAIT_EXIT          0xaf
+#define FRVC_NOTIFY_KERNEL_EXIT_DONE          0xb0
 
 //This value indicate that kernel request FastRVC pause display
-#define KERNEL_REQUEST_PAUSE_FRVC 	0xF0F0F0F0
-#define KERNEL_REQUEST_REGAIN_FRVC      0xF5F5F5F5
+#define KERNEL_REQUEST_PAUSE_FRVC             0xc2
+#define KERNEL_REQUEST_REGAIN_FRVC            0xd4
+
 
 #define FRVC_LK_NOTIFY_KERNEL_REG    (FRVC_SHARED_MEM_BASE+0xC) /* Notify Message */
 #define FRVC_LK_NOTIFY_DISPLAY_PAUSE 	0xF0F0F0F0
 
+#define PING_SET                              0xe6
+#define PONG_SET                              0xf8
+
+#define VFE_PING_ADDR_FROM_KERNEL              (FRVC_SHARED_MEM_BASE+0x0)
+#define VFE_PONG_ADDR_FROM_KERNEL              (FRVC_SHARED_MEM_BASE+0x4)
 
 int platform_get_secondary_cpu_num();
 void early_camera_fastrvc_entery();

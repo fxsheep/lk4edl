@@ -910,6 +910,7 @@ void camera_power_up(){
 	mdelay(10);
 	gpio_tlmm_config(GPIO_STANDBY_NUM,0,GPIO_OUTPUT,GPIO_NO_PULL,GPIO_2MA,1); //STANDBY
 
+    //gpio_tlmm_config(54,0,GPIO_INPUT,GPIO_NO_PULL,GPIO_2MA,1);
 	//ldo enable
 	rpm_send_data(&ldo6[1][0],36,RPM_REQUEST_TYPE);  //1.8v DOVDD
 	rpm_send_data(&ldo17[1][0],36,RPM_REQUEST_TYPE); //2.8V AFDVDD
@@ -1036,7 +1037,10 @@ void target_camera_camera_release(struct vfe_device *vfe_dev){
 	clk_get_set_enable("gpll6_clk_src",0,0);
 
 	dprintf(INFO," rpm_send_data.....\n");
-
+	// rpm_send_data(&ldo6[0][0],36,RPM_REQUEST_TYPE);  //1.8v DOVDD
+	// rpm_send_data(&ldo17[0][0],36,RPM_REQUEST_TYPE); //2.8V AFDVDD
+	// rpm_send_data(&ldo22[0][0],36,RPM_REQUEST_TYPE); //2.8V AVDD
+	// rpm_send_data(&ldo23[0][0],36,RPM_REQUEST_TYPE); //1.2V DVDD
 	dprintf(INFO," target_camera_camera_release msm_clock_release exit.....\n");
 }
 
@@ -1044,21 +1048,27 @@ void target_camera_camera_release(struct vfe_device *vfe_dev){
 
 void request_fastrvc_pause_working(bool showFlag)
 {
-	if(showFlag)
-		writel(KERNEL_REQUEST_PAUSE_FRVC,FRVC_KERNEL_NOTIFY_LK_REG);
-	else
-		writel(KERNEL_REQUEST_REGAIN_FRVC,FRVC_KERNEL_NOTIFY_LK_REG);
+	uint32_t reg_value = 0;
+	reg_value = readl(FRVC_CAMERA_STATUS_REG);
+	reg_value &= 0xFF00FFFF;
 
+	if(showFlag)
+		reg_value |= (KERNEL_REQUEST_PAUSE_FRVC << 16);
+	else
+		reg_value |= (KERNEL_REQUEST_REGAIN_FRVC << 16);
+
+	writel(reg_value,FRVC_CAMERA_STATUS_REG);
 	dprintf(INFO,"Paused show FastRVC screen ... (%s) \n",showFlag ? "TRUE" : "FLASE");
 }
 
 bool query_fastrvc_working_status()
 {
 	uint32_t reg_value = 0;
+	uint8_t  display_status = 0;
 
-	reg_value = readl(FRVC_DISPLAY_STATUS_REG);
-
-	return (FRVC_DISPLAY_IS_WORKING == reg_value);
+	reg_value = readl(FRVC_CAMERA_STATUS_REG);
+    display_status = ( reg_value >> 8 ) & 0xFF;
+	return (FRVC_DISPLAY_IS_WORKING == display_status);
 }
 
 /*
@@ -1080,6 +1090,10 @@ void early_camera_fastrvc_thread(void)
 	int i = 0;
 	int ret = 0;
 	uint32_t reg_value = 0;
+	unsigned char camera_status = 0;
+	unsigned char display_status = 0;
+	unsigned char notify_status = 0;
+
 	uint32_t irq0 = 0;
 	uint32_t irq1 = 0;
     bool is_image_display_on_screen = true;
@@ -1130,8 +1144,10 @@ void early_camera_fastrvc_thread(void)
 	camera_sensor_start();
 	vfe_cfg_start();
 
+	writel(0x0,FRVC_CAMERA_STATUS_REG);
 	// Signal Kernel early camera is active.
-	writel(FRVC_CAMERA_IS_ENABLED, FRVC_CAMERA_STATUS_REG);
+	reg_value |= FRVC_CAMERA_IS_ENABLED;
+	writel(reg_value,FRVC_CAMERA_STATUS_REG);
 
 	dprintf(CRITICAL, "Waiting for display init to complete for FastRVC\n");
 	while((FALSE == target_display_is_init_done()) && (i < 300)) {
@@ -1140,49 +1156,59 @@ void early_camera_fastrvc_thread(void)
 	}
 	dprintf(CRITICAL, "Display init done! Entery FastRVC mode... \n");
 
-	/* Notify Kernel that Display in LK is init OK */
-	writel(FRVC_DISPLAY_IS_ENABLED, FRVC_DISPLAY_STATUS_REG);
+	reg_value |= (FRVC_DISPLAY_IS_ENABLED << 8) | (KERNEL_REQUEST_REGAIN_FRVC << 16);
+	writel(reg_value,FRVC_CAMERA_STATUS_REG);
 
 	while(1)
 	{
-		reg_value = readl(FRVC_KERNEL_NOTIFY_LK_REG);
-		if (KERNEL_REQUEST_EXIT_FRVC == reg_value) {
+		reg_value      = readl(FRVC_CAMERA_STATUS_REG) & 0xFFFFFFFF;
+		camera_status  = reg_value & 0xFF;
+		display_status = (reg_value >> 8) & 0xFF;
+		notify_status  = (reg_value >> 16) & 0xFF;
+		if (KERNEL_REQUEST_EXIT_FRVC == notify_status) {
 			//This value indicates kernel request LK to shutdown immediately
 			break;
 		}
-		else if(KERNEL_REQUEST_STOP_FRVC == reg_value) {
+		else if(KERNEL_REQUEST_STOP_FRVC == notify_status) {
 			// If FastRVC not running, quit direct.
 			// else, wait FastRVC complete and quit.
 			if(false == is_reverse_camera_on()){
 				dprintf(CRITICAL, "Early Camera start exit... \n");
-				writel(FRVC_DISPLAY_IS_ENABLED, FRVC_DISPLAY_STATUS_REG);
+				reg_value &= 0xFFFF00FF;
+				reg_value |= (FRVC_DISPLAY_IS_ENABLED << 8);
+				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 				break;
 			}else{
-				reg_value = readl(FRVC_DISPLAY_STATUS_REG);
-				if(reg_value != FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
-                                     writel(FRVC_NOTIFY_ANDROID_SHOW_CAMERA, FRVC_DISPLAY_STATUS_REG);
-                                }
+				if(display_status != FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
+					reg_value &= 0xFFFF00FF;
+					reg_value |= (FRVC_NOTIFY_ANDROID_SHOW_CAMERA << 8);
+					writel(reg_value,FRVC_CAMERA_STATUS_REG);
+				}
 				mdelay(10);
 				continue;
 			}
-		}else if(KERNEL_REQUEST_PAUSE_FRVC == reg_value){
+		}else if(KERNEL_REQUEST_PAUSE_FRVC == notify_status){
 			/* Update Camera and Display status */
-			reg_value = readl(FRVC_CAMERA_STATUS_REG);
-			if(FRVC_CAMERA_IS_WORKING == reg_value) {
+			if(FRVC_CAMERA_IS_WORKING == camera_status) {
 				/* Notify Kernel that Camera in LK is shutdown */
-				writel(FRVC_CAMERA_IS_ENABLED, FRVC_CAMERA_STATUS_REG);
+				reg_value &= 0xFFFFFF00;
+				reg_value |= (FRVC_CAMERA_IS_ENABLED);
+				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 				dprintf(INFO,"FRVC_CAMERA_IS_ENABLED \n");
 			}
 
-			reg_value = readl(FRVC_DISPLAY_STATUS_REG);
 			// Notify  Kernel that Display is not using now..
 			if(is_reverse_camera_on()){
-				if(reg_value != FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
-					writel(FRVC_NOTIFY_ANDROID_SHOW_CAMERA, FRVC_DISPLAY_STATUS_REG);
+				if(display_status != FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
+					reg_value &= 0xFFFF00FF;
+					reg_value |= (FRVC_NOTIFY_ANDROID_SHOW_CAMERA << 8);
+					writel(reg_value,FRVC_CAMERA_STATUS_REG);
 				}
 			}else{
-				if(reg_value == FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
-					writel(FRVC_DISPLAY_IS_ENABLED, FRVC_DISPLAY_STATUS_REG);
+				if(display_status == FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
+					reg_value &= 0xFFFF00FF;
+					reg_value |= (FRVC_DISPLAY_IS_ENABLED << 8);
+					writel(reg_value,FRVC_CAMERA_STATUS_REG);
 				}
 			}
 			/* If Reverse signal not trigger, do not show the FastRVC */
@@ -1190,18 +1216,21 @@ void early_camera_fastrvc_thread(void)
 			continue;
 		}else {
 			/* Update Camera and Display status */
-			reg_value = readl(FRVC_CAMERA_STATUS_REG);
-			if(FRVC_CAMERA_IS_WORKING != reg_value) {
+			if(FRVC_CAMERA_IS_WORKING != camera_status) {
 				/* Notify Kernel that Camera in LK is shutdown */
-				writel(FRVC_CAMERA_IS_WORKING, FRVC_CAMERA_STATUS_REG);
+				reg_value &= 0xFFFFFF00;
+				reg_value |= (FRVC_CAMERA_IS_WORKING);
+				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 			}
 
-			reg_value = readl(FRVC_DISPLAY_STATUS_REG);
-			if(FRVC_DISPLAY_IS_WORKING != reg_value) {
+			if(FRVC_DISPLAY_IS_WORKING != display_status) {
 				// Notify  Kernel that Display is not using now..
-				writel(FRVC_DISPLAY_IS_WORKING, FRVC_DISPLAY_STATUS_REG);
+				reg_value &= 0xFFFF00FF;
+				reg_value |= (FRVC_DISPLAY_IS_WORKING << 8);
+				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 			}
 		}
+
 
 		irq0 = msm_vfe_poll_irq0();
 		if(((irq0 >> 25) & 0xF)){
@@ -1219,19 +1248,21 @@ void early_camera_fastrvc_thread(void)
 	}
 
 thread_exit:
-    writel(FRVC_NOTIFY_KERNEL_WAIT_EXIT,FRVC_KERNEL_NOTIFY_LK_REG);
+    reg_value &= 0xFF00FFFF;
+    reg_value |= (FRVC_NOTIFY_KERNEL_WAIT_EXIT << 16);
+    writel(reg_value,FRVC_CAMERA_STATUS_REG);
     do{
-        reg_value = readl(FRVC_KERNEL_NOTIFY_LK_REG);
-        mdelay(30);
-    }while(reg_value != FRVC_NOTIFY_KERNEL_EXIT_DONE);
-	target_camera_camera_release(&vfe_dev);
-	dprintf(CRITICAL,"target_early_camera_init end !\n");
+        reg_value = readl(FRVC_CAMERA_STATUS_REG);
+        notify_status  = (reg_value >> 16) & 0xFF;
+        mdelay(10);
+    }while(FRVC_NOTIFY_KERNEL_EXIT_DONE != notify_status);
 
-	/* Notify Kernel that Camera in LK is shutdown */
-	writel(FRVC_CAMERA_IS_DONE, FRVC_CAMERA_STATUS_REG);
+    target_camera_camera_release(&vfe_dev);
+    dprintf(CRITICAL,"target_early_camera_init end !\n");
 
-	// Notify  Kernel that Display is not using now..
-	writel(FRVC_DISPLAY_IS_DONE, FRVC_DISPLAY_STATUS_REG);
+	reg_value &= 0xFFFF0000;
+	reg_value |=(FRVC_DISPLAY_IS_DONE << 8) | FRVC_CAMERA_IS_DONE;
+	writel(reg_value,FRVC_CAMERA_STATUS_REG);
 
 	dprintf(INFO,"FastRVC Thread exit Now!\n");
 }

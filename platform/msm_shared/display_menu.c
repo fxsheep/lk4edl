@@ -119,8 +119,12 @@ static void wait_for_exit()
 		mutex_acquire(&select_msg->msg_lock);
 	}
 	mutex_release(&select_msg->msg_lock);
+
 	is_thread_start = false;
+#if !SECONDARY_CPU_SUPPORT
+	fbcon_clear();
 	display_image_on_screen();
+#endif
 }
 
 void wait_for_users_action()
@@ -321,6 +325,7 @@ void display_bootverify_menu_renew(struct select_msg_info *msg_info, int type)
 	}
 #endif
 	display_fbcon_menu_message(str3, FBCON_COMMON_MSG, common_factor);
+
 #if SECONDARY_CPU_SUPPORT
 display_end:
 #endif
