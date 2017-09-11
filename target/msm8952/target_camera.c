@@ -1068,7 +1068,7 @@ bool query_fastrvc_working_status()
 
 	reg_value = readl(FRVC_CAMERA_STATUS_REG);
     display_status = ( reg_value >> 8 ) & 0xFF;
-	return (FRVC_DISPLAY_IS_WORKING == display_status);
+	return (FRVC_DISPLAY_IS_WORKING & display_status);
 }
 
 /*
@@ -1093,10 +1093,10 @@ void early_camera_fastrvc_thread(void)
 	unsigned char camera_status = 0;
 	unsigned char display_status = 0;
 	unsigned char notify_status = 0;
+	unsigned char kernel_notify_lk_set_pingpong_status = 0;
 
 	uint32_t irq0 = 0;
 	uint32_t irq1 = 0;
-    bool is_image_display_on_screen = true;
 	struct vfe_device vfe_dev;
 
 	dprintf(CRITICAL,"target_early_camera_init Start.\n");
@@ -1158,6 +1158,8 @@ void early_camera_fastrvc_thread(void)
 
 	reg_value |= (FRVC_DISPLAY_IS_ENABLED << 8) | (KERNEL_REQUEST_REGAIN_FRVC << 16);
 	writel(reg_value,FRVC_CAMERA_STATUS_REG);
+	writel(0x00,VFE_PING_ADDR_FROM_KERNEL);
+	writel(0x00,VFE_PONG_ADDR_FROM_KERNEL);
 
 	while(1)
 	{
@@ -1165,6 +1167,24 @@ void early_camera_fastrvc_thread(void)
 		camera_status  = reg_value & 0xFF;
 		display_status = (reg_value >> 8) & 0xFF;
 		notify_status  = (reg_value >> 16) & 0xFF;
+		kernel_notify_lk_set_pingpong_status = (reg_value >> 24) & 0xFF;
+
+		if(is_reverse_camera_on()){
+			if(!(display_status & FRVC_NOTIFY_ANDROID_SHOW_CAMERA)){
+				reg_value &= 0xFFFF00FF;
+				display_status |= FRVC_NOTIFY_ANDROID_SHOW_CAMERA;
+				reg_value |= (display_status << 8);
+				writel(reg_value,FRVC_CAMERA_STATUS_REG);
+			}
+		}else{
+			if(display_status & FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
+				reg_value &= 0xFFFF00FF;
+				display_status &= 0x0F;
+				reg_value |= (display_status << 8);
+				writel(reg_value,FRVC_CAMERA_STATUS_REG);
+			}
+		}
+
 		if (KERNEL_REQUEST_EXIT_FRVC == notify_status) {
 			//This value indicates kernel request LK to shutdown immediately
 			break;
@@ -1188,32 +1208,30 @@ void early_camera_fastrvc_thread(void)
 				continue;
 			}
 		}else if(KERNEL_REQUEST_PAUSE_FRVC == notify_status){
-			/* Update Camera and Display status */
-			if(FRVC_CAMERA_IS_WORKING == camera_status) {
-				/* Notify Kernel that Camera in LK is shutdown */
-				reg_value &= 0xFFFFFF00;
-				reg_value |= (FRVC_CAMERA_IS_ENABLED);
-				writel(reg_value,FRVC_CAMERA_STATUS_REG);
-				dprintf(INFO,"FRVC_CAMERA_IS_ENABLED \n");
-			}
-
-			// Notify  Kernel that Display is not using now..
-			if(is_reverse_camera_on()){
-				if(display_status != FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
-					reg_value &= 0xFFFF00FF;
-					reg_value |= (FRVC_NOTIFY_ANDROID_SHOW_CAMERA << 8);
-					writel(reg_value,FRVC_CAMERA_STATUS_REG);
-				}
-			}else{
-				if(display_status == FRVC_NOTIFY_ANDROID_SHOW_CAMERA){
-					reg_value &= 0xFFFF00FF;
-					reg_value |= (FRVC_DISPLAY_IS_ENABLED << 8);
-					writel(reg_value,FRVC_CAMERA_STATUS_REG);
-				}
-			}
 			/* If Reverse signal not trigger, do not show the FastRVC */
-			mdelay(10);
-			continue;
+			if(kernel_notify_lk_set_pingpong_status == PINGPONG_ALREADY_SET){
+				if(readl(VFE_PING_ADDR_FROM_KERNEL) != 0x00){
+					writel(0x00,VFE_PING_ADDR_FROM_KERNEL);
+				}
+
+				if(readl(VFE_PONG_ADDR_FROM_KERNEL) != 0x00){
+					writel(0x00,VFE_PONG_ADDR_FROM_KERNEL);
+				}
+			/* Update Camera and Display status */
+				if(FRVC_CAMERA_IS_WORKING == camera_status) {
+				/* Notify Kernel that Camera in LK is shutdown */
+					reg_value &= 0xFFFFFF00;
+					reg_value |= (FRVC_CAMERA_IS_ENABLED);
+					writel(reg_value,FRVC_CAMERA_STATUS_REG);
+					dprintf(INFO,"FRVC_CAMERA_IS_ENABLED \n");
+				}
+				mdelay(10);
+				continue;
+			}
+			if(readl(VFE_PING_ADDR_FROM_KERNEL) == 0x00 && readl(VFE_PONG_ADDR_FROM_KERNEL) == 0x00){
+				mdelay(10);
+				continue;
+			}
 		}else {
 			/* Update Camera and Display status */
 			if(FRVC_CAMERA_IS_WORKING != camera_status) {
@@ -1223,28 +1241,22 @@ void early_camera_fastrvc_thread(void)
 				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 			}
 
-			if(FRVC_DISPLAY_IS_WORKING != display_status) {
+			if(!(FRVC_DISPLAY_IS_WORKING & display_status)) {
 				// Notify  Kernel that Display is not using now..
 				reg_value &= 0xFFFF00FF;
-				reg_value |= (FRVC_DISPLAY_IS_WORKING << 8);
+				display_status |= FRVC_DISPLAY_IS_WORKING;
+				reg_value |= (display_status << 8);
 				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 			}
 		}
-
 
 		irq0 = msm_vfe_poll_irq0();
 		if(((irq0 >> 25) & 0xF)){
 			irq1 = msm_vfe_poll_irq1();
 			msm_vfe_irq_mask_cfg(irq0,irq1);
-			msm_get_camera_frame();
+			msm_get_camera_frame(notify_status);
 		}
-		if(is_reverse_camera_on()){
-			is_image_display_on_screen = false;
-			nv12_to_rgb888();
-		}else{
-			display_camera_default_image(is_image_display_on_screen);
-			is_image_display_on_screen = true;
-		}
+		nv12_to_rgb888(is_reverse_camera_on());
 	}
 
 thread_exit:

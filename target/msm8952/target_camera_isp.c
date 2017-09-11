@@ -91,6 +91,12 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define VFE_PING_FLAG 0xFFFFFFFF
 #define VFE_PONG_FLAG 0x0
 
+#define FRAME_WIDTH 1920
+#define FRAME_HEIGHT 1080
+#define RGB_ADDR (0xA400102f + 1920*1080*6)
+
+static  bool is_image_display_on_screen = true;
+
 enum ISP_START_PIXEL_PATTERN {
 	ISP_BAYER_RGRGRG,
 	ISP_BAYER_GRGRGR,
@@ -399,12 +405,33 @@ int get_msm_vfe_buffer_full(){
 	return -1;
 }
 
-int msm_vfe_check_buffer_status(int pingping_status){
+void msm_set_kernel_vfe_pingpong_status(uint32_t pingpong){
+	uint32_t reg_value = 0;
+	uint8_t kernel_notify_lk_set_pingpong_status = 0;
+	reg_value = readl(FRVC_CAMERA_STATUS_REG);
+
+	kernel_notify_lk_set_pingpong_status = (reg_value >> 24) & 0xFF;
+	if(kernel_notify_lk_set_pingpong_status == PINGPONG_ALREADY_SET)
+		return;
+
+	if(pingpong)
+		reg_value |= (PING_SET << 24);
+	else
+		reg_value |= (PONG_SET << 24);
+
+	writel(reg_value,FRVC_CAMERA_STATUS_REG);
+}
+
+int msm_vfe_check_buffer_status(int pingping_status,uint8_t notify_status){
 	uint32_t temp;
+	uint32_t addr;
     int i;
+
 	if(pingping_status){
+		addr = msm_camera_io_r(VFE_PING_ADDR_FROM_KERNEL);
 		temp = MSM_BUFFER_PING_SET;
 	}else{
+		addr = msm_camera_io_r(VFE_PONG_ADDR_FROM_KERNEL);
 		temp = MSM_BUFFER_PONG_SET;
 	}
 
@@ -422,23 +449,26 @@ int msm_vfe_check_buffer_status(int pingping_status){
 
     for(i = 0; i < vfe_bufq.num_bufs; i++){
         if(vfe_bufq.buffer_info[i].status == MSM_BUFFER_EMPTY){
+        	if(notify_status == KERNEL_REQUEST_PAUSE_FRVC){
+        		vfe_bufq.buffer_info[i].addr = addr;
+        	}
             msm_vfe_update_pingpong_addr(vfe_bufq.buffer_info[i].addr,pingping_status);
             vfe_bufq.buffer_info[i].status = temp;
+
+            if(notify_status == KERNEL_REQUEST_PAUSE_FRVC){
+            	msm_set_kernel_vfe_pingpong_status(pingping_status);
+            }
             break;
         }
     }
     return 1;
 }
 
-void msm_get_camera_frame(){
+void msm_get_camera_frame(uint8_t notify_status){
 	uint32_t pingpong;
 	pingpong = msm_vfe_pingpong_status();
-	msm_vfe_check_buffer_status(pingpong & 0x1);
+	msm_vfe_check_buffer_status(pingpong & 0x1,notify_status);
 }
-
-#define FRAME_WIDTH 1920
-#define FRAME_HEIGHT 1080
-#define RGB_ADDR (0xA400102f + 1920*1080*6)
 
 static long int yuv_rgb_crv_tab[256];
 static long int yuv_rgb_cbu_tab[256];
@@ -477,7 +507,7 @@ void init_yuv420p_table(){
     init = 1;
 }
 
-void nv12_to_rgb888()
+void nv12_to_rgb888(bool gpio_status)
 {
 	static int yuv_line = -1;
     static unsigned char* y_addr = NULL;
@@ -534,7 +564,14 @@ void nv12_to_rgb888()
 
     if(yuv_line >= FRAME_HEIGHT) {
         yuv_line = -1;
-        display_camera_on_screen(RGB_ADDR, flag);
+        if(gpio_status){
+        	is_image_display_on_screen = false;
+        	display_camera_on_screen(RGB_ADDR, flag);
+        }
+        else{
+        	display_camera_default_image(is_image_display_on_screen);
+        	is_image_display_on_screen = true;
+        }
         vfe_bufq.buffer_info[idx].status = MSM_BUFFER_EMPTY;
     }
 }
@@ -580,8 +617,6 @@ void msm_isp_stats_bg_stream_cfg(struct vfe_device *vfe_dev){
 }
 
 void msm_isp_cfg_input(){
-	//int rc = 0;
-	//rc = msm_isp_cfg_pix(vfe_dev, input_cfg);
 	uint32_t core_cfg = 0;
 	uint32_t val = 0;
 	uint32_t update_mask = 0;
@@ -616,13 +651,13 @@ void msm_vfe40_cfg_axi_ub_equal_default(){
 }
 
 void msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev){
-	//msm_isp_axi_update_cgc_override
+
 	int i;
 	uint32_t val = 0;
 	uint32_t comp_mask, comp_mask_index;
 	uint8_t stream_composite_mask = 0;
 
-	//msm_vfe40_axi_update_cgc_override
+
 	for(i = 0;i < 2;i++){
 		val = msm_camera_io_r(VFE_BASE + 0x974);
 		val |= (1 << i); //0 1 2 3
@@ -1709,12 +1744,10 @@ void msm_isp_close_node(struct vfe_device *vfe_dev){
 	msm_camera_io_w_mb(val & ~(1 << 8), VFE_BASE + 0x464);
 	msm_camera_io_w_mb(0x0,VFE_BASE + 0x2F4);
 
-	//msm_camera_clk_enable(0);
 
 }
 
 void msm_isp_clock_disable(){
 
 	msm_camera_clk_enable(0);
-
 }

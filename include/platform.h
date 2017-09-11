@@ -141,10 +141,10 @@ camera display notify reg define
 ** FRVC_DISPLAY_IS_DONE: Camera using complete.
 *******************************************************************************
 */
-#define FRVC_DISPLAY_IS_ENABLED               0x46
-#define FRVC_DISPLAY_IS_WORKING               0x58
-#define FRVC_DISPLAY_IS_DONE                  0x6a
-#define FRVC_NOTIFY_ANDROID_SHOW_CAMERA       0x7c
+#define FRVC_DISPLAY_IS_ENABLED               0x01//0x46
+#define FRVC_DISPLAY_IS_WORKING               0x02//0x58
+#define FRVC_DISPLAY_IS_DONE                  0x04//0x6a
+#define FRVC_NOTIFY_ANDROID_SHOW_CAMERA       0x10//0x7c
 /*
 *******************************************************************************
 ** MDSS_SCRATCH_REG_2:  MDSS Registers
@@ -168,8 +168,9 @@ camera display notify reg define
 #define FRVC_LK_NOTIFY_KERNEL_REG    (FRVC_SHARED_MEM_BASE+0xC) /* Notify Message */
 #define FRVC_LK_NOTIFY_DISPLAY_PAUSE 	0xF0F0F0F0
 
-#define PING_SET                              0xe6
-#define PONG_SET                              0xf8
+#define PING_SET                              0x01
+#define PONG_SET                              0x10
+#define PINGPONG_ALREADY_SET                  0x11
 
 #define VFE_PING_ADDR_FROM_KERNEL              (FRVC_SHARED_MEM_BASE+0x0)
 #define VFE_PONG_ADDR_FROM_KERNEL              (FRVC_SHARED_MEM_BASE+0x4)

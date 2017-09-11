@@ -76,7 +76,7 @@ uint32_t msm_vfe_poll_irq0();
 uint32_t msm_vfe_poll_irq1();
 void msm_vfe_irq_mask_cfg(uint32_t irq0,uint32_t irq1);
 uint32_t msm_vfe_pingpong_status();
-void msm_get_camera_frame();
+void msm_get_camera_frame(uint8_t notify_status);
 void vfe_cfg_start();
 void msm_vfe_pingping_cfg(uint32_t ping_addr,uint32_t pong_addr);
 void camera_csid_release();
@@ -86,5 +86,5 @@ void camera_csiphy_clock_disable();
 void camera_csid_clock_disable();
 void msm_isp_clock_disable();
 void msm_ispif_clock_disable();
-void nv12_to_rgb888();
+void nv12_to_rgb888(bool gpio_status);
 #endif
