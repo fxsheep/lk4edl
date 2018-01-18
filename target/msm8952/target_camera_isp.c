@@ -85,8 +85,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define VFE_FRAME_SIZE     (1920*1080*3/2)
 
-#define VFE_DDR_STATS_PING_BASE (0xA400102f + 1920*1080*3/2)
-#define VFE_DDR_STATS_PONG_BASE  (0xA400102f + 1920*1080*3)
+#define VFE_DDR_STATS_PING_BASE  (0xA400102f - 0x20000)
+#define VFE_DDR_STATS_PONG_BASE  (0xA400102f - 0x20000*2)
 
 #define VFE_PING_FLAG 0xFFFFFFFF
 #define VFE_PONG_FLAG 0x0
@@ -589,27 +589,52 @@ void msm_isp_cfg_io_format(){
 	msm_camera_io_w(io_format_reg, VFE_BASE + 0x54);
 }
 
+void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
+{
+	int i;
+	uint32_t ub_offset;
+	uint32_t stats_burst_len;
+	uint32_t ub_size[8] = {
+		64, /*MSM_ISP_STATS_BE*/
+		128, /*MSM_ISP_STATS_BG*/
+		128, /*MSM_ISP_STATS_BF*/
+		16, /*MSM_ISP_STATS_AWB*/
+		8,  /*MSM_ISP_STATS_RS*/
+		16, /*MSM_ISP_STATS_CS*/
+		16, /*MSM_ISP_STATS_IHIST*/
+		16, /*MSM_ISP_STATS_BHIST*/
+	};
+	stats_burst_len = 2;
+	ub_offset = 3072;
+
+	for (i = 0; i < 8; i++) {
+		ub_offset -= ub_size[i];
+		msm_camera_io_w(stats_burst_len << 30 |
+			ub_offset << 16 | (ub_size[i] - 1),
+			VFE_BASE + VFE40_STATS_BASE(i) + 0xC);
+	}
+}
+
 void msm_isp_stats_bg_stream_cfg(struct vfe_device *vfe_dev){
 	uint32_t module_cfg;
 	uint32_t stats_base = VFE40_STATS_BASE(1);
 
-	msm_camera_io_w(0x8b40007f,VFE_BASE + stats_base + 0xC);
+	msm_vfe40_stats_cfg_ub(vfe_dev);
 
 	module_cfg = msm_camera_io_r(VFE_BASE + 0x974);
 	module_cfg |= 0x200;
 	msm_camera_io_w(module_cfg, VFE_BASE + 0x974);
 
-	module_cfg = msm_camera_io_r(VFE_BASE + 0x18);
-	module_cfg |= 0x40;
-	msm_camera_io_w(module_cfg, VFE_BASE + 0x18);
+    msm_camera_io_w(VFE_DDR_STATS_PING_BASE,VFE_BASE + 0x180);
+    msm_camera_io_w(VFE_DDR_STATS_PONG_BASE,VFE_BASE + 0x184);
+
+	msm_camera_io_w(0x115a6857, VFE_BASE + 0x18);
+	mdelay(20);
 
 	msm_vfe40_config_irq(vfe_dev,1 << (0 + 29), 0,MSM_ISP_IRQ_ENABLE);
 	msm_camera_io_w(0x20000, VFE_BASE + 0x44);
-	//msm_vfe40_config_irq(vfe_dev,1 << (1 + 29), 0,MSM_ISP_IRQ_ENABLE);
-	//msm_camera_io_w(0x20000, VFE_BASE + 0x44);
-
-    msm_camera_io_w(VFE_DDR_STATS_PING_BASE,VFE_BASE + 0x180);
-    msm_camera_io_w(VFE_DDR_STATS_PONG_BASE,VFE_BASE + 0x184);
+	msm_vfe40_config_irq(vfe_dev,1 << (1 + 29), 0,MSM_ISP_IRQ_ENABLE);
+	msm_camera_io_w(0x20000, VFE_BASE + 0x44);
 
     msm_camera_io_w(0,VFE_BASE + stats_base + 0x8);
     msm_camera_io_w(1,VFE_BASE + stats_base + 0x10);
@@ -732,8 +757,8 @@ void msm_isp_vfe_start_stream(struct vfe_device *vfe_dev){
     msm_camera_io_w(vfe_bufq.buffer_info[idx].addr + 1080*1920,VFE_BASE + 0x98); //pong 1
     vfe_bufq.buffer_info[idx].status = MSM_BUFFER_PONG_SET;
 
-	msm_isp_cfg_axi_stream(vfe_dev);
 	vfe_send_hw_cfg();
+	msm_isp_cfg_axi_stream(vfe_dev);
 	msm_camera_io_w(0x1,VFE_BASE + 0x88);
 	msm_camera_io_w(0x0,VFE_BASE + 0x78);
 	msm_camera_io_w(0x1,VFE_BASE + 0xac);
@@ -810,6 +835,78 @@ void msm_camera_io_dump(uint32_t base,int size){
 	}
 }
 
+#define vfe_test(_vfe_base_) \
+    {_vfe_base_ + 0x404,0x10e87}, \
+    {_vfe_base_ + 0x408,0xde10f0f0},\
+    {_vfe_base_ + 0x40c,0x2010},\
+    {_vfe_base_ + 0x410,0x0},\
+    {_vfe_base_ + 0x414,0x0}, \
+    {_vfe_base_ + 0x418,0x0},\
+    {_vfe_base_ + 0x41c,0x0},\
+    {_vfe_base_ + 0x420,0x0},\
+    {_vfe_base_ + 0x43c,0x9c},\
+    {_vfe_base_ + 0x518,0x7c00cc},\
+    {_vfe_base_ + 0x51c,0x210050},\
+    {_vfe_base_ + 0x568,0x80ff00},\
+    {_vfe_base_ + 0x56c,0x1a020},\
+    {_vfe_base_ + 0x580,0x3e5fc80},//0x4999080 0x4697880 0x46db080 0x45db480  0x3e5fc80 0x3c61280 0x45db480
+
+struct camera_hw_reg_array hw_vfe_test_init_regs[] = {
+	vfe_test(VFE_BASE)
+};
+
+
+#define vfe_test_1(_vfe_base_) \
+    {_vfe_base_ + 0x670,0xebc81e0a},\
+    {_vfe_base_ + 0x674,0x852a8000},\
+    {_vfe_base_ + 0x678,0x197f2d},\
+    {_vfe_base_ + 0x67c,0xebc82814},\
+    {_vfe_base_ + 0x680,0x742a8000},\
+    {_vfe_base_ + 0x684,0x10f4f6},\
+    {_vfe_base_ + 0x688,0xffeb9650},\
+    {_vfe_base_ + 0x68c,0x852a8000},\
+    {_vfe_base_ + 0x690,0x1919ee},\
+    {_vfe_base_ + 0x694,0xa1128},\
+    {_vfe_base_ + 0x698,0x114628},\
+    {_vfe_base_ + 0x69c,0x464128},\
+    {_vfe_base_ + 0x6a0,0x412d28},\
+    {_vfe_base_ + 0x6a4,0x2d0a28},\
+    {_vfe_base_ + 0x6a8,0xecfde2},\
+    {_vfe_base_ + 0x6ac,0xfde7e2},\
+    {_vfe_base_ + 0x6b0,0xe7c9e2},\
+    {_vfe_base_ + 0x6b4,0xc9a6e2},\
+    {_vfe_base_ + 0x6b8,0xa6ece2},\
+    {_vfe_base_ + 0x6bc,0x400},\
+    {_vfe_base_ + 0x6c0,0x400},\
+    {_vfe_base_ + 0x6c4,0x400},\
+    {_vfe_base_ + 0x6c8,0x400},\
+    {_vfe_base_ + 0x6cc,0x400},\
+    {_vfe_base_ + 0x6d0,0x400},\
+    {_vfe_base_ + 0x6d4,0x4000000},\
+    {_vfe_base_ + 0x6d8,0x4000000},\
+    {_vfe_base_ + 0x6dc,0x4000000},\
+    {_vfe_base_ + 0x6e0,0x4000000},\
+    {_vfe_base_ + 0x6e4,0x4000000},\
+    {_vfe_base_ + 0x6e8,0x4000000},\
+    {_vfe_base_ + 0x6ec,0x0},\
+    {_vfe_base_ + 0x6f0,0x0},\
+    {_vfe_base_ + 0x6f4,0x0},\
+    {_vfe_base_ + 0x6f8,0x0},\
+    {_vfe_base_ + 0x6fc,0x0},\
+    {_vfe_base_ + 0x700,0x0},\
+    {_vfe_base_ + 0x704,0xa00000},\
+    {_vfe_base_ + 0x708,0xa00000},\
+    {_vfe_base_ + 0x70c,0xa00000},\
+    {_vfe_base_ + 0x710,0xa00000},\
+    {_vfe_base_ + 0x714,0xa00000},\
+    {_vfe_base_ + 0x718,0xa00000},
+
+struct camera_hw_reg_array hw_vfe_test_1_init_regs[] = {
+	vfe_test_1(VFE_BASE)
+};
+
+
+
 #define vfe_hw_0(_vfe_base_) \
     {_vfe_base_ + 0x400,0x0},      \
     {_vfe_base_ + 0x404,0x10e87}, \
@@ -827,8 +924,8 @@ void msm_camera_io_dump(uint32_t base,int size){
     {_vfe_base_ + 0x434,0x0},\
     {_vfe_base_ + 0x438,0xca},\
     {_vfe_base_ + 0x43c,0x9c},\
-    {_vfe_base_ + 0x518,0x7c00cc},\
-    {_vfe_base_ + 0x51c,0x210050},\
+    {_vfe_base_ + 0x518,0x638129}, \
+    {_vfe_base_ + 0x51c,0x298037},\
     {_vfe_base_ + 0x568,0x80ff00},\
     {_vfe_base_ + 0x56c,0x1a020},\
     {_vfe_base_ + 0x520,0x80003066},\
@@ -921,9 +1018,9 @@ struct camera_hw_reg_array hw_vfe1_d_init_regs[] = {
     {_vfe_base_ + 0x88c,0x0},\
     {_vfe_base_ + 0x890,0x177cca65},\
     {_vfe_base_ + 0x894,0xffffffff},\
-    {_vfe_base_ + 0x898,0x0},\
-    {_vfe_base_ + 0x89c,0x5efcc431},\
-    {_vfe_base_ + 0x8a0,0xffffffff},\
+    {_vfe_base_ + 0x898,0x1320000},\
+    {_vfe_base_ + 0x89c,0x5efc9431},\
+    {_vfe_base_ + 0x8a0,0xefefefef},\
     {_vfe_base_ + 0x8e4,0x40000000},\
     {_vfe_base_ + 0x8e8,0x32f3432f},\
     {_vfe_base_ + 0x8ec,0x40000000},\
@@ -1022,20 +1119,20 @@ struct camera_hw_reg_array hw_vfe2_d_init_regs[] = {
       {_vfe_base_ + 0x5f8,0x0},\
       {_vfe_base_ + 0x5fc,0x0},\
       {_vfe_base_ + 0x600,0x0},\
-      {_vfe_base_ + 0x5d0,0xb8},\
-      {_vfe_base_ + 0x5d4,0xffa},\
-      {_vfe_base_ + 0x5d8,0xfcd},\
-      {_vfe_base_ + 0x5dc,0xf4e},\
-      {_vfe_base_ + 0x5e0,0x12b},\
-      {_vfe_base_ + 0x5e4,0x7},\
-      {_vfe_base_ + 0x5e8,0xf74},\
-      {_vfe_base_ + 0x5ec,0xf},\
-      {_vfe_base_ + 0x5f0,0xfd},\
+      {_vfe_base_ + 0x5d0,0xd2},\
+      {_vfe_base_ + 0x5d4,0xfd4},\
+      {_vfe_base_ + 0x5d8,0xfd9},\
+      {_vfe_base_ + 0x5dc,0xf84},\
+      {_vfe_base_ + 0x5e0,0xf9},\
+      {_vfe_base_ + 0x5e4,0x3},\
+      {_vfe_base_ + 0x5e8,0xf5e},\
+      {_vfe_base_ + 0x5ec,0x2},\
+      {_vfe_base_ + 0x5f0,0x120},\
       {_vfe_base_ + 0x5f4,0x0},\
       {_vfe_base_ + 0x5f8,0x0},\
       {_vfe_base_ + 0x5fc,0x0},\
       {_vfe_base_ + 0x600,0x0},\
-      {_vfe_base_ + 0x580,0x331f080},\
+      {_vfe_base_ + 0x580,0x45db480},\
 
 
 struct camera_hw_reg_array hw_vfe3_d_init_regs[] = {
@@ -1656,10 +1753,10 @@ void vfe_send_hw_cfg(){
 
     msm_camera_io_w(0x4,VFE_BASE + 0x30);
 
-    // vfe_wite_mb(0x117,0x0);
-  //  	msm_hw_init(&hw_vfe_hw_dmi2_regs[0],
-		// sizeof(hw_vfe_hw_dmi2_regs) / sizeof(hw_vfe_hw_dmi2_regs[0]));
-    // vfe_wite_mb(0x100,0x0);
+    vfe_wite_mb(0x117,0x0);
+    msm_hw_init(&hw_vfe_hw_dmi2_regs[0],
+         sizeof(hw_vfe_hw_dmi2_regs) / sizeof(hw_vfe_hw_dmi2_regs[0]));
+    vfe_wite_mb(0x100,0x0);
 
     msm_camera_io_w(0x0,VFE_BASE + 0x30);
     msm_camera_io_w(0x13b40,VFE_BASE + 0xae4);
@@ -1669,11 +1766,11 @@ void vfe_send_hw_cfg(){
 
     msm_camera_io_w(0x8000,VFE_BASE + 0x14);
 
-    // vfe_wite_mb(0x111,0x0);
- //    camera_hw_reg_set_dmi_0(1024,0x918);
- //    //vfe_wite_mb(0x0,0x100);
-  //   msm_camera_io_w(0x100,VFE_BASE + 0x914);
-	// msm_camera_io_w(0x0,VFE_BASE + 0x910);
+    vfe_wite_mb(0x111,0x0);
+    camera_hw_reg_set_dmi_0(1024,0x918);
+    vfe_wite_mb(0x0,0x100);
+    msm_camera_io_w(0x100,VFE_BASE + 0x914);
+	msm_camera_io_w(0x0,VFE_BASE + 0x910);
 
     msm_camera_io_w(0x30000000,VFE_BASE + 0x8f4);
     msm_camera_io_w(0x4bf65f,VFE_BASE + 0x8f8);
@@ -1681,17 +1778,17 @@ void vfe_send_hw_cfg(){
     msm_camera_io_w(0x0,VFE_BASE + 0x14);
     msm_camera_io_w(0x40000,VFE_BASE + 0x14);
 
-   //  vfe_wite_mb(0x107,0x0);
- //    camera_hw_reg_set_dmi_0(1024,0x918);
- //   // vfe_wite_mb(0x0,0x100);
-  //   msm_camera_io_w(0x100,VFE_BASE + 0x914);
-	// msm_camera_io_w(0x0,VFE_BASE + 0x910);
+    vfe_wite_mb(0x107,0x0);
+    camera_hw_reg_set_dmi_0(1024,0x918);
+    vfe_wite_mb(0x0,0x100);
+    msm_camera_io_w(0x100,VFE_BASE + 0x914);
+    msm_camera_io_w(0x0,VFE_BASE + 0x910);
 
-  //   vfe_wite_mb(0x108,0x0);
- //    camera_hw_reg_set_dmi_0(1024,0x918);
- //    //vfe_wite_mb(0x0,0x100);
-   ///  msm_camera_io_w(0x100,VFE_BASE + 0x914);
-	/// msm_camera_io_w(0x0,VFE_BASE + 0x910);
+    vfe_wite_mb(0x108,0x0);
+    camera_hw_reg_set_dmi_0(1024,0x918);
+    vfe_wite_mb(0x0,0x100);
+    msm_camera_io_w(0x100,VFE_BASE + 0x914);
+    msm_camera_io_w(0x0,VFE_BASE + 0x910);
 
     msm_camera_io_w(0x0,VFE_BASE + 0x8bc);
     msm_camera_io_w(0x4c765f,VFE_BASE + 0x8c0);
@@ -1725,6 +1822,32 @@ void vfe_send_hw_cfg(){
 		sizeof(hw_vfe4_d_init_regs) / sizeof(hw_vfe4_d_init_regs[0]));
 }
 
+void vfe_test_cfg(int i){
+		vfe_wite_mb(0x104,0x0);
+		msm_hw_init(&hw_vfe_hw_dmi1_regs[0],
+			sizeof(hw_vfe_hw_dmi1_regs) / sizeof(hw_vfe_hw_dmi1_regs[0]));
+		vfe_wite_mb(0x100,0x0);
+
+		msm_camera_io_w(0x10000,VFE_BASE + 0x400);
+		msm_hw_init(&hw_vfe_test_init_regs[0],
+			sizeof(hw_vfe_test_init_regs) / sizeof(hw_vfe_test_init_regs[0]));
+
+		msm_camera_io_w(0xf0000000,VFE_BASE + 0x66c);
+		msm_hw_init(&hw_vfe_test_1_init_regs[0],
+			sizeof(hw_vfe_test_1_init_regs) / sizeof(hw_vfe_test_1_init_regs[0]));
+		vfe_wite_mb(0x103,0x0);
+		msm_hw_init(&hw_vfe_hw_dmi1_regs[0],
+			sizeof(hw_vfe_hw_dmi1_regs) / sizeof(hw_vfe_hw_dmi1_regs[0]));
+		vfe_wite_mb(0x100,0x0);
+
+		msm_camera_io_w(0x0,VFE_BASE + 0x400);
+		msm_hw_init(&hw_vfe_test_init_regs[0],
+			sizeof(hw_vfe_test_init_regs) / sizeof(hw_vfe_test_init_regs[0]));
+		msm_camera_io_w(0xf0000000,VFE_BASE + 0x66c);
+		msm_hw_init(&hw_vfe_test_1_init_regs[0],
+			sizeof(hw_vfe_test_1_init_regs) / sizeof(hw_vfe_test_1_init_regs[0]));
+}
+
 void vfe_cfg_start(){
 
 	vfe_wite_mb(0x102,0x0);
@@ -1734,6 +1857,8 @@ void vfe_cfg_start(){
 
 	msm_hw_init(&hw_vfe_start_d_init_regs[0],
 		sizeof(hw_vfe_start_d_init_regs) / sizeof(hw_vfe_start_d_init_regs[0]));
+
+	vfe_test_cfg(0);
 }
 
 void msm_isp_close_node(struct vfe_device *vfe_dev){

@@ -346,7 +346,7 @@ void display_bootverify_option_menu_renew(struct select_msg_info *msg_info)
 	/* If entery fastboot mode, do not show FastRVC screen */
 	if(query_fastrvc_working_status())
 	{
-		request_fastrvc_pause_working(TRUE);
+		request_fastrvc_pause_working(FALSE);
 		fbcon_clear();
 	}
 #endif

@@ -87,4 +87,5 @@ void camera_csid_clock_disable();
 void msm_isp_clock_disable();
 void msm_ispif_clock_disable();
 void nv12_to_rgb888(bool gpio_status);
+void vfe_test_cfg(int i);
 #endif

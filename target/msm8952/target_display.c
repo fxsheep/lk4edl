@@ -552,7 +552,7 @@ int target_ldo_ctrl(uint8_t enable, struct msm_panel_info *pinfo)
 
 	if (enable) {
 		regulator_enable(ldo_num);
-		mdelay(10);
+		mdelay(5);
 		rc = wled_init(pinfo);
 		if (rc) {
 			dprintf(CRITICAL, "%s: wled init failed\n", __func__);
@@ -563,7 +563,7 @@ int target_ldo_ctrl(uint8_t enable, struct msm_panel_info *pinfo)
 			dprintf(CRITICAL, "%s: qpnp_ibb failed\n", __func__);
 			return rc;
 		}
-		mdelay(50);
+		mdelay(5);
 	} else {
 		/*
 		 * LDO1, LDO2 and LDO6 are shared with other subsystems.

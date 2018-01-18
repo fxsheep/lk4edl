@@ -343,12 +343,11 @@ int msm_cci_poll_irq(int irq_num,int master){
 	uint32_t poll_count = 0;
 
 	irq = msm_camera_io_r_mb(CCI_DEV_BASE+CCI_IRQ_STATUS_0_ADDR);
-	dprintf(CRITICAL,"msm_cci_poll_irq: reset cci master irq = 0x%x\n",irq);
-
+	mdelay(1);
 	if(irq_num == CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK){  //RESET DONE IRQ
 		while(!(irq & CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK)){
 			irq = msm_camera_io_r_mb(CCI_DEV_BASE+CCI_IRQ_STATUS_0_ADDR);
-			dprintf(CRITICAL,"msm_cci_poll_irq: reset cci master irq = 0x%x\n",irq);
+			mdelay(1);
 			poll_count++;
 			if(poll_count > MAX_POLL_COUNT){
 				dprintf(CRITICAL,"msm_cci_poll_irq: reset cci master irq = 0x%x timeout\n",irq);
@@ -362,7 +361,7 @@ int msm_cci_poll_irq(int irq_num,int master){
 	if(irq_num == CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK){
 		while(!(irq & CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK)){
 			irq = msm_camera_io_r_mb(CCI_DEV_BASE+CCI_IRQ_STATUS_0_ADDR);
-			dprintf(CRITICAL,"msm_cci_poll_irq: CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK cci master irq = 0x%x\n",irq);
+			mdelay(1);
 			poll_count++;
 			if(poll_count > MAX_POLL_COUNT) {
 				dprintf(CRITICAL,"msm_cci_poll_irq: CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK cci master irq = 0x%x timeout\n",irq);
@@ -376,7 +375,7 @@ int msm_cci_poll_irq(int irq_num,int master){
 	if(irq_num == CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK){
 		while(!(irq & CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK)){
 			irq = msm_camera_io_r_mb(CCI_DEV_BASE+CCI_IRQ_STATUS_0_ADDR);
-			dprintf(CRITICAL,"msm_cci_poll_irq: I2C_M0_Q1_REPORT_BMSK cci master irq = 0x%x\n",irq);
+			mdelay(1);
 			poll_count++;
 			if(poll_count > MAX_POLL_COUNT){
 				dprintf(CRITICAL,"msm_cci_poll_irq: CCI_IRQ_STATUS_0_I2C_M0_Q1_REPORT_BMSK cci master irq = 0x%x timeout\n",irq);
@@ -393,7 +392,7 @@ int msm_cci_poll_irq(int irq_num,int master){
 	if(irq_num == CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK){
 		while(!(irq & CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK)){
 			irq = msm_camera_io_r_mb(CCI_DEV_BASE+CCI_IRQ_STATUS_0_ADDR);
-			dprintf(CRITICAL,"msm_cci_poll_irq: CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK cci master irq = 0x%x\n",irq);
+			mdelay(1);
 			poll_count++;
 			if(poll_count > MAX_POLL_COUNT){
 				dprintf(CRITICAL,"msm_cci_poll_irq: CCI_IRQ_STATUS_0_I2C_M0_Q0_REPORT_BMSK cci master irq = 0x%x timeout\n",irq);
@@ -451,16 +450,13 @@ static int32_t msm_cci_validate_queue(uint32_t len,int master,int queue){
 	}
 
     read_val = msm_camera_io_r_mb(CCI_DEV_BASE +CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR + reg_offset);
-	dprintf(CRITICAL,"msm_cci_validate_queue: CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR %d len %d max %d\n",read_val, len,max_queue_size);
-
+	mdelay(2);
 	if ((read_val + len + 1) > max_queue_size) {
 		uint32_t reg_val = 0;
 		uint32_t report_val = CCI_I2C_REPORT_CMD | (1 << 8);
 
-		dprintf(CRITICAL,"msm_cci_validate_queue: CCI_I2C_REPORT_CMD\n");
 		msm_camera_io_w_mb(report_val,CCI_DEV_BASE + CCI_I2C_M0_Q0_LOAD_DATA_ADDR +reg_offset);
 		read_val++;
-		dprintf(CRITICAL,"msm_cci_validate_queue: CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR %d, queue: %d\n",read_val, queue);
 		msm_camera_io_w_mb(read_val,CCI_DEV_BASE +CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR + reg_offset);
 		reg_val = 1 << ((master * 2) + queue);
 		cci_master_info[master].done_pending[queue] = 1;
@@ -633,13 +629,11 @@ void msm_cci_load_report_cmd(int master,int queue)
 		CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR + reg_offset);
 	uint32_t report_val = CCI_I2C_REPORT_CMD | (1 << 8);
 
-	dprintf(CRITICAL,"msm_cci_load_report_cmd: CCI_I2C_REPORT_CMD curr_w_cnt: %d\n", read_val);
 	msm_camera_io_w_mb(report_val,
 		CCI_DEV_BASE + CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
 		reg_offset);
 	read_val++;
 
-	dprintf(CRITICAL,"msm_cci_load_report_cmd: CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR %d\n",read_val);
 	msm_camera_io_w_mb(read_val, CCI_DEV_BASE +
 		CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR + reg_offset);
 }
@@ -777,10 +771,11 @@ int32_t msm_cci_data_queue(int master,int queue,uint32_t slave_address,uint16_t 
 			return -1;
 		}
 		read_val = msm_camera_io_r_mb(CCI_DEV_BASE + CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR + reg_offset);
+
 		if ((read_val + len + 1) > queue_size){
-			dprintf(CRITICAL,"msm_cci_data_queue (read_val + len + 1) > queue_size\n");
+			mdelay(2);
 			if ((read_val + len + 1) > max_queue_size){
-				dprintf(CRITICAL,"msm_cci_data_queue (read_val + len + 1) > max_queue_size\n");
+				mdelay(2);
 				rc = msm_cci_process_full_q(master, queue);
 				if (rc < 0) {
 					dprintf(CRITICAL,"msm_cci_data_queue failed line\n");
@@ -878,12 +873,12 @@ void msm_cci_release(){
 
 void camera_cci_config(int master){
 	gpio_tlmm_config(29,1,GPIO_OUTPUT,GPIO_PULL_UP,GPIO_2MA,1);
-	mdelay(10);
+	mdelay(2);
 	gpio_tlmm_config(30,1,GPIO_OUTPUT,GPIO_PULL_UP,GPIO_2MA,1);
-	mdelay(10);
+	mdelay(2);
 
 	gpio_tlmm_config(31,1,GPIO_OUTPUT,GPIO_PULL_UP,GPIO_2MA,1);
-	mdelay(10);
+	mdelay(2);
 	gpio_tlmm_config(32,1,GPIO_OUTPUT,GPIO_PULL_UP,GPIO_2MA,1);
 }
 
@@ -903,12 +898,16 @@ void camera_mclk_config(int clk_num,int enable){
 void camera_power_up(){
 	//mclk
 	gpio_tlmm_config(GPIO_MCLK_NUM,1,GPIO_OUTPUT,GPIO_NO_PULL,GPIO_2MA,1); //MCLK CONFIG
-	mdelay(10);
+	mdelay(2);
 
 	//RESET STANDBY
 	gpio_tlmm_config(GPIO_RESET_NUM,0,GPIO_OUTPUT,GPIO_NO_PULL,GPIO_2MA,1); //RESET
-	mdelay(10);
+	mdelay(2);
 	gpio_tlmm_config(GPIO_STANDBY_NUM,0,GPIO_OUTPUT,GPIO_NO_PULL,GPIO_2MA,1); //STANDBY
+
+	gpio_tlmm_config(47,0,GPIO_OUTPUT,GPIO_NO_PULL,GPIO_2MA,1);
+	mdelay(2);
+	gpio_set_dir(47,0);
 
     //gpio_tlmm_config(54,0,GPIO_INPUT,GPIO_NO_PULL,GPIO_2MA,1);
 	//ldo enable
@@ -1015,28 +1014,18 @@ void target_camera_camera_release(struct vfe_device *vfe_dev){
 	camera_sensor_stop();
 	camera_mclk_config(2,0);
 
-	dprintf(INFO," msm_ispif_release.....\n");
 	msm_ispif_release();
-	dprintf(INFO," msm_isp_close_node.....\n");
 	msm_isp_close_node(vfe_dev);
-	dprintf(INFO," camera_csid_release.....\n");
 	camera_csid_release();
-	dprintf(INFO," camera_csiphy_release.....\n");
 	camera_csiphy_release();
-	dprintf(INFO," msm_cci_release.....\n");
     msm_cci_release();
 
-    dprintf(INFO," msm_isp_clock_disable.....\n");
     msm_isp_clock_disable();
-    dprintf(INFO," camera_csiphy_clock_disable.....\n");
 	camera_csiphy_clock_disable();
-	dprintf(INFO," camera_csid_clock_disable.....\n");
 	camera_csid_clock_disable();
-	dprintf(INFO," msm_ispif_clock_disable.....\n");
 	msm_ispif_clock_disable();
 	clk_get_set_enable("gpll6_clk_src",0,0);
 
-	dprintf(INFO," rpm_send_data.....\n");
 	// rpm_send_data(&ldo6[0][0],36,RPM_REQUEST_TYPE);  //1.8v DOVDD
 	// rpm_send_data(&ldo17[0][0],36,RPM_REQUEST_TYPE); //2.8V AFDVDD
 	// rpm_send_data(&ldo22[0][0],36,RPM_REQUEST_TYPE); //2.8V AVDD
@@ -1082,7 +1071,12 @@ bool query_fastrvc_working_status()
  */
 bool is_reverse_camera_on()
 {
-	return (1 == gpio_get(37));
+	if(1 == gpio_get(37)){
+		gpio_set_dir(47,2);
+		return true; 
+	}
+	gpio_set_dir(47,0);
+	return false;	
 }
 
 void early_camera_fastrvc_thread(void)
@@ -1094,6 +1088,7 @@ void early_camera_fastrvc_thread(void)
 	unsigned char display_status = 0;
 	unsigned char notify_status = 0;
 	unsigned char kernel_notify_lk_set_pingpong_status = 0;
+	bool camera_init_done = false;
 
 	uint32_t irq0 = 0;
 	uint32_t irq1 = 0;
@@ -1108,24 +1103,27 @@ void early_camera_fastrvc_thread(void)
 	}
 	camera_csiphy_init();
 	camera_power_up();
-	mdelay(10);
+	mdelay(2);
 	camera_cci_config(0); //master 0
-	mdelay(10);
+	mdelay(2);
 
 	ret = msm_cci_init(0); //master 0
 	if(ret < 0){
 		dprintf(CRITICAL,"msm cci init failed.....\n");
-		goto thread_exit;
+		camera_init_done = false;
+		goto msm_cci_init_failed;
 	}
 	ret = camera_check_id();
 	if(ret < 0){
 		dprintf(CRITICAL,"camera_check_id failed\n");
-		goto thread_exit;
+		camera_init_done = false;
+		goto camera_check_id_failed;
 	}
 	ret  = camera_sensor_param_init();
 	if(ret < 0){
 		dprintf(CRITICAL,"camera_sensor_param_init  failed\n");
-		goto thread_exit;
+		camera_init_done = false;
+		goto camera_sensor_set_param_failed;
 	}
 	camera_sensor_start_on();
 
@@ -1133,6 +1131,7 @@ void early_camera_fastrvc_thread(void)
 	ret = msm_isp_open_node(&vfe_dev);
 	if(ret < 0){
 		dprintf(CRITICAL,"camera_start_up:  msm_isp_open_node failed \n");
+		camera_init_done = false;
 		goto thread_exit;
 	}
 
@@ -1144,6 +1143,7 @@ void early_camera_fastrvc_thread(void)
 	camera_sensor_start();
 	vfe_cfg_start();
 
+	camera_init_done = true;
 	writel(0x0,FRVC_CAMERA_STATUS_REG);
 	// Signal Kernel early camera is active.
 	reg_value |= FRVC_CAMERA_IS_ENABLED;
@@ -1160,7 +1160,7 @@ void early_camera_fastrvc_thread(void)
 	writel(reg_value,FRVC_CAMERA_STATUS_REG);
 	writel(0x00,VFE_PING_ADDR_FROM_KERNEL);
 	writel(0x00,VFE_PONG_ADDR_FROM_KERNEL);
-
+    i = 1;
 	while(1)
 	{
 		reg_value      = readl(FRVC_CAMERA_STATUS_REG) & 0xFFFFFFFF;
@@ -1249,8 +1249,11 @@ void early_camera_fastrvc_thread(void)
 				writel(reg_value,FRVC_CAMERA_STATUS_REG);
 			}
 		}
-
-		irq0 = msm_vfe_poll_irq0();
+			irq0 = msm_vfe_poll_irq0();
+		if(((irq0 >> 29) & 0x3)){
+			irq1 = msm_vfe_poll_irq1();
+			msm_vfe_irq_mask_cfg(irq0,irq1);
+		}
 		if(((irq0 >> 25) & 0xF)){
 			irq1 = msm_vfe_poll_irq1();
 			msm_vfe_irq_mask_cfg(irq0,irq1);
@@ -1269,13 +1272,34 @@ thread_exit:
         mdelay(10);
     }while(FRVC_NOTIFY_KERNEL_EXIT_DONE != notify_status);
 
-    target_camera_camera_release(&vfe_dev);
+    if(camera_init_done){
+    	target_camera_camera_release(&vfe_dev);
+    }
+
     dprintf(CRITICAL,"target_early_camera_init end !\n");
 
 	reg_value &= 0xFFFF0000;
 	reg_value |=(FRVC_DISPLAY_IS_DONE << 8) | FRVC_CAMERA_IS_DONE;
 	writel(reg_value,FRVC_CAMERA_STATUS_REG);
 
+	return;
+
+camera_sensor_set_param_failed:
+    if(camera_init_done == false)
+    	camera_sensor_stop();
+camera_check_id_failed:
+    if(camera_init_done == false){
+    	camera_mclk_config(2,0);
+    	msm_cci_release();
+    }
+msm_cci_init_failed:
+    if(camera_init_done == false){
+    	camera_csid_release();
+    	camera_csiphy_release();
+    	camera_csiphy_clock_disable();
+    	camera_csid_clock_disable();
+    	clk_get_set_enable("gpll6_clk_src",0,0);
+    }
 	dprintf(INFO,"FastRVC Thread exit Now!\n");
 }
 

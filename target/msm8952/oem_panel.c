@@ -120,7 +120,7 @@ static struct panel_list supp_panels[] = {
 
 static uint32_t panel_id;
 
-#define TRULY_1080P_PANEL_ON_DELAY 40
+#define TRULY_1080P_PANEL_ON_DELAY 1
 
 int oem_panel_rotation()
 {
