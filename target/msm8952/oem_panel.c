@@ -59,6 +59,7 @@
 #include "include/panel_r69006_1080p_cmd.h"
 #include "include/panel_r69006_1080p_video.h"
 #include "include/panel_hx8394f_720p_video.h"
+#include "include/panel_hx8394f_boe_720p_video.h"
 #include "include/panel_truly_720p_video.h"
 #include "include/panel_truly_wuxga_video.h"
 #include "include/panel_truly_720p_cmd.h"
@@ -82,6 +83,7 @@ enum {
 	R69006_1080P_CMD_PANEL,
 	R69006_1080P_VIDEO_PANEL,
 	HX8394F_720P_VIDEO_PANEL,
+	HX8394F_BOE_720P_VIDEO_PANEL,
 	TRULY_720P_VIDEO_PANEL,
 	TRULY_WUXGA_VIDEO_PANEL,
 	TRULY_720P_CMD_PANEL,
@@ -112,6 +114,7 @@ static struct panel_list supp_panels[] = {
 	{"r69006_1080p_cmd",R69006_1080P_CMD_PANEL},
 	{"r69006_1080p_video",R69006_1080P_VIDEO_PANEL},
 	{"hx8394f_720p_video", HX8394F_720P_VIDEO_PANEL},
+	{"hx8394f_boe_720p_video", HX8394F_BOE_720P_VIDEO_PANEL},
 	{"truly_720p_video", TRULY_720P_VIDEO_PANEL},
 	{"truly_wuxga_video", TRULY_WUXGA_VIDEO_PANEL},
 	{"truly_720p_cmd", TRULY_720P_CMD_PANEL},
@@ -573,6 +576,34 @@ static int init_panel_data(struct panel_struct *panelstruct,
 		memcpy(phy_db->timing,
 						hx8394f_720p_video_timings, TIMING_SIZE);
 		pinfo->mipi.signature = HX8394F_720P_VIDEO_SIGNATURE;
+		break;
+	case HX8394F_BOE_720P_VIDEO_PANEL:
+		panelstruct->paneldata	  = &hx8394f_boe_720p_video_panel_data;
+		panelstruct->panelres	  = &hx8394f_boe_720p_video_panel_res;
+		panelstruct->color				  = &hx8394f_boe_720p_video_color;
+		panelstruct->videopanel   = &hx8394f_boe_720p_video_video_panel;
+		panelstruct->commandpanel = &hx8394f_boe_720p_video_command_panel;
+		panelstruct->state				  = &hx8394f_boe_720p_video_state;
+		panelstruct->laneconfig   = &hx8394f_boe_720p_video_lane_config;
+		panelstruct->paneltiminginfo
+								 = &hx8394f_boe_720p_video_timing_info;
+		panelstruct->panelresetseq
+								 = &hx8394f_boe_720p_video_reset_seq;
+		panelstruct->backlightinfo = &hx8394f_boe_720p_video_backlight;
+		pinfo->labibb = &hx8494f_boe_720p_video_labibb;
+		pinfo->mipi.panel_on_cmds
+								= hx8394f_boe_720p_video_on_command;
+		pinfo->mipi.num_of_panel_on_cmds
+								= HX8394F_BOE_720P_VIDEO_ON_COMMAND;
+		pinfo->mipi.panel_off_cmds
+								= hx8394f_boe_720p_video_off_command;
+		pinfo->mipi.num_of_panel_off_cmds
+								= HX8394F_BOE_720P_VIDEO_OFF_COMMAND;
+		memcpy(phy_db->timing,
+						hx8394f_boe_720p_video_timings, TIMING_SIZE);
+		pinfo->mipi.signature = HX8394F_BOE_720P_VIDEO_SIGNATURE;
+		pinfo->lvds.channel_mode = LVDS_SINGLE_CHANNEL_MODE;
+		pinfo->mipi.tx_eot_append = true;
 		break;
 	case BYD_1200P_VIDEO_PANEL:
 		panelstruct->paneldata    = &byd_1200p_video_panel_data;
