@@ -85,6 +85,15 @@ struct partition_entry *partition_entries;
 static unsigned gpt_partitions_exist = 0;
 static unsigned partition_count;
 
+void partition_offset_boot(uint32_t block_size)
+{
+	int index = partition_get_index("boot");
+	int offset = (1 * 1024 * 1024) / block_size;
+
+	partition_entries[index].first_lba += offset;
+	partition_entries[index].size -= offset;
+}
+
 unsigned int partition_read_table()
 {
 	unsigned int ret;
@@ -114,6 +123,8 @@ unsigned int partition_read_table()
 			return 1;
 		}
 	}
+
+	partition_offset_boot(block_size);
 	return 0;
 }
 
