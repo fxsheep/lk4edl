@@ -85,13 +85,35 @@ struct partition_entry *partition_entries;
 static unsigned gpt_partitions_exist = 0;
 static unsigned partition_count;
 
-void partition_offset_boot(uint32_t block_size)
+void partition_split_boot(uint32_t block_size)
 {
+	struct partition_entry *boot;
 	int index = partition_get_index("boot");
-	int offset = (1 * 1024 * 1024) / block_size;
+	unsigned long long lk_size = (1 * 1024 * 1024) / block_size;
 
-	partition_entries[index].first_lba += offset;
-	partition_entries[index].size -= offset;
+	if (index == INVALID_PTN) {
+		dprintf(CRITICAL, "Boot partition not found\n");
+		return;
+	}
+	boot = &partition_entries[index];
+
+	if (boot->size < lk_size) {
+		dprintf(CRITICAL, "Boot partition has not enough space for secondary lk\n");
+		return;
+	}
+
+	if (partition_count < NUM_PARTITIONS) {
+		struct partition_entry *lk = &partition_entries[partition_count++];
+		memcpy(lk, boot, sizeof(*lk));
+		strcpy(lk->name, "lk");
+		lk->last_lba = lk->first_lba + lk_size - 1;
+		lk->size = lk_size;
+	} else {
+		dprintf(INFO, "Too many partitions to add virtual 'lk' partition\n");
+	}
+
+	boot->first_lba += lk_size;
+	boot->size -= lk_size;
 }
 
 unsigned int partition_read_table()
@@ -124,7 +146,7 @@ unsigned int partition_read_table()
 		}
 	}
 
-	partition_offset_boot(block_size);
+	partition_split_boot(block_size);
 	return 0;
 }
 
