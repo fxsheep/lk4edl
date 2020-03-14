@@ -5,6 +5,7 @@
 #include <platform.h>
 #include <dev/fbcon.h>
 #include <target/display.h>
+#include <platform/iomap.h>
 
 #define PIPE_BASE  MDP_VP_0_RGB_0_BASE
 
@@ -15,6 +16,14 @@ static struct fbcon_config fb = {
 
 extern int check_aboot_addr_range_overlap(uintptr_t start, uint32_t size);
 extern int check_ddr_addr_range_bound(uintptr_t start, uint32_t size);
+
+bool display_init_done = false;
+
+bool target_display_is_init_done()
+{
+        return display_init_done;
+}
+
 
 static int mdss_read_config(struct fbcon_config *fb)
 {

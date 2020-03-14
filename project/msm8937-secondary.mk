@@ -1,4 +1,4 @@
-# top level project rules for the msm8916 project
+# top level project rules for the msm8937 project
 #
 LOCAL_DIR := $(GET_LOCAL_DIR)
 

@@ -945,6 +945,30 @@ int check_aboot_addr_range_overlap(uintptr_t start, uint32_t size)
 
 #define ROUND_TO_PAGE(x,y) (((x) + (y)) & (~(y)))
 
+/* Function to check if the memory address range falls beyond ddr region.
+ * start: Start of the memory region
+ * size: Size of the memory region
+ */
+int check_ddr_addr_range_bound(uintptr_t start, uint32_t size)
+{
+	uintptr_t ddr_pa_start_addr = PA(get_ddr_start());
+	uint64_t ddr_size = smem_get_ddr_size();
+	uint64_t ddr_pa_end_addr = ddr_pa_start_addr + ddr_size;
+	uintptr_t pa_start_addr = PA(start);
+
+	/* Check for boundary conditions. */
+	if ((UINT_MAX - start) < size)
+		return -1;
+
+	/* Check if memory range is beyond the ddr range. */
+	if (pa_start_addr < ddr_pa_start_addr ||
+		pa_start_addr >= (ddr_pa_end_addr) ||
+		(pa_start_addr + size) > ddr_pa_end_addr)
+		return -1;
+	else
+		return 0;
+}
+
 BUF_DMA_ALIGN(buf, BOOT_IMG_MAX_PAGE_SIZE); //Equal to max-supported pagesize
 #if DEVICE_TREE
 BUF_DMA_ALIGN(dt_buf, BOOT_IMG_MAX_PAGE_SIZE);
