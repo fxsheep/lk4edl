@@ -40,8 +40,11 @@ DEFINES += \
 OBJS += \
 	$(LOCAL_DIR)/init.o \
 	$(LOCAL_DIR)/meminfo.o \
+ifneq ($(DISPLAY_USE_CONTINUOUS_SPLASH),1)
+OBJS += \
 	$(LOCAL_DIR)/target_display.o \
 	$(LOCAL_DIR)/oem_panel.o
+endif
 ifeq ($(ENABLE_SMD_SUPPORT),1)
 OBJS += \
 	$(LOCAL_DIR)/regulator.o
