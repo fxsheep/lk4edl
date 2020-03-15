@@ -590,7 +590,7 @@ static int init_panel_data(struct panel_struct *panelstruct,
 		panelstruct->panelresetseq
 								 = &hx8394f_boe_720p_video_reset_seq;
 		panelstruct->backlightinfo = &hx8394f_boe_720p_video_backlight;
-		pinfo->labibb = &hx8494f_boe_720p_video_labibb;
+		pinfo->labibb = &hx8394f_boe_720p_video_labibb;
 		pinfo->mipi.panel_on_cmds
 								= hx8394f_boe_720p_video_on_command;
 		pinfo->mipi.num_of_panel_on_cmds
