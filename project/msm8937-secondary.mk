@@ -17,4 +17,4 @@ DEFINES += SAFE_MODE=1
 DEFINES += DEFAULT_UNLOCK=1
 
 # Use continuous splash from primary bootloader for display
-#DISPLAY_USE_CONTINUOUS_SPLASH := 1
+DISPLAY_USE_CONTINUOUS_SPLASH := 1

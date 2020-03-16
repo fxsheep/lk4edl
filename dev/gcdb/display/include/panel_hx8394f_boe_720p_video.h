@@ -94,7 +94,7 @@ static struct lane_configuration hx8394f_boe_720p_video_lane_config = {
 
 static const uint32_t hx8394f_boe_720p_video_timings[] = {
 	0x8C, 0x1E, 0x14, 0x00, 0x46, 0x48, 0x1A, 0x22, 0x18, 0x03, 0x04, 0x00
-};
+}
 
 static struct panel_timing hx8394f_boe_720p_video_timing_info = {
 	0, 4, 0x04, 0x1C
