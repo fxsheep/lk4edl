@@ -673,7 +673,7 @@ int fastboot_init(void *base, unsigned size)
 
 
 	/* target specific initialization before going into fastboot. */
-//	target_fastboot_init();
+	target_fastboot_init();
 
 	/* setup serialno */
 	target_serialno((unsigned char *) sn_buf);
