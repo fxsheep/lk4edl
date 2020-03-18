@@ -29,7 +29,7 @@ GenerateKernelHeader() {
     "$BIN" >> "$HEADER_OUT"
 }
 
-rm -rf "build-$TARGET"
+#rm -rf "build-$TARGET"
 
 make -j6 TOOLCHAIN_PREFIX=arm-none-eabi- "$TARGET"
 

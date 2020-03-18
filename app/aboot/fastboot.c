@@ -670,13 +670,17 @@ int fastboot_init(void *base, unsigned size)
 	download_base = base;
 	download_max = size;
 
+
+
 	/* target specific initialization before going into fastboot. */
-	target_fastboot_init();
+//	target_fastboot_init();
 
 	/* setup serialno */
 	target_serialno((unsigned char *) sn_buf);
 	dprintf(SPEW,"serial number: %s\n",sn_buf);
 	surf_udc_device.serialno = sn_buf;
+
+
 
 	if(!strcmp(target_usb_controller(), "dwc"))
 	{
@@ -716,8 +720,12 @@ int fastboot_init(void *base, unsigned size)
 		usb_if.usb_write           = hsusb_usb_write;
 	}
 
+
+
+
 	/* register udc device */
 	usb_if.udc_init(&surf_udc_device);
+
 
 	event_init(&usb_online, 0, EVENT_FLAG_AUTOUNSIGNAL);
 	event_init(&txn_done, 0, EVENT_FLAG_AUTOUNSIGNAL);

@@ -332,7 +332,6 @@ void target_init(void)
 	/* turn on vibrator to indicate that phone is booting up to end user */
 	vib_timed_turn_on(VIBRATE_TIME);
 #endif
-
 	if (target_use_signed_kernel())
 		target_crypto_init_params();
 

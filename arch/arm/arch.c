@@ -45,14 +45,22 @@ void arch_early_init(void)
 	set_vector_base(MEMBASE);
 #endif
 
+	//Reached here.
+
 #if ARM_WITH_MMU
 	arm_mmu_init();
 
 #endif
 
+	//as well.
+
+#if 0
 	/* turn the cache back on */
 	arch_enable_cache(UCACHE);
 
+	//fine
+
+#endif
 #if ARM_WITH_NEON
 	/* enable cp10 and cp11 */
 	uint32_t val;
@@ -80,6 +88,12 @@ void arch_early_init(void)
 	en = (1<<31);
 	__asm__ volatile("mcr	p15, 0, %0, c9, c12, 1" :: "r" (en));
 #endif
+
+        int *pshold;
+        pshold = 0x4ab000;
+//        *pshold = 0;
+
+
 }
 
 void arch_init(void)

@@ -8,7 +8,7 @@ ENABLE_FBCON_DISPLAY_MSG := 1
 include $(LOCAL_DIR)/msm8952.mk
 
 # Use maximum verbosity
-DEBUG := 2
+DEBUG := 9
 DEFINES += LK_LOG_BUF_SIZE=16384
 
 # Avoid writing device info

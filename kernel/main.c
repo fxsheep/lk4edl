@@ -70,14 +70,19 @@ void kmain(void)
 	// get us into some sort of thread context
 	thread_init_early();
 
+
 	// early arch stuff
 	arch_early_init();
+	
+
 
 	// do any super early platform initialization
 	platform_early_init();
 
+
 	// do any super early target initialization
 	target_early_init();
+
 
 	dprintf(INFO, "welcome to lk\n\n");
 	bs_set_timestamp(BS_BL_START);
@@ -89,12 +94,15 @@ void kmain(void)
 	// bring up the kernel heap
 	dprintf(SPEW, "initializing heap\n");
 	heap_init();
+        
 
-	__stack_chk_guard_setup();
+
+//	__stack_chk_guard_setup();
 
 	// initialize the threading system
 	dprintf(SPEW, "initializing threads\n");
 	thread_init();
+
 
 	// initialize the dpc system
 	dprintf(SPEW, "initializing dpc\n");
@@ -103,6 +111,7 @@ void kmain(void)
 	// initialize kernel timers
 	dprintf(SPEW, "initializing timers\n");
 	timer_init();
+
 
 #if (!ENABLE_NANDWRITE)
 	// create a thread to complete system initialization
@@ -141,13 +150,16 @@ static int bootstrap2(void *arg)
 	fs_init();
 #endif
 
+
 	// initialize the rest of the platform
 	dprintf(SPEW, "initializing platform\n");
 	platform_init();
 
+
 	// initialize the target
 	dprintf(SPEW, "initializing target\n");
 	target_init();
+
 
 	dprintf(SPEW, "calling apps_init()\n");
 	apps_init();

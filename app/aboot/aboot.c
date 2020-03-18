@@ -4124,8 +4124,9 @@ void aboot_init(const struct app_descriptor *app)
 	}
 	ASSERT((MEMBASE + MEMSIZE) > MEMBASE);
 
-	read_device_info(&device);
+	//read_device_info(&device);
 	read_allow_oem_unlock(&device);
+
 	aboot_parse_fdt();
 
 #if USE_PON_REBOOT_REG
@@ -4134,7 +4135,9 @@ void aboot_init(const struct app_descriptor *app)
 	reboot_mode = check_reboot_mode();
 #endif
 
+
 #if SECONDARY_CPU_SUPPORT
+
 
 	/* enable secondary core for early domain services */
 	if((1/*device.early_domain_enabled*/) &&
@@ -4147,6 +4150,9 @@ void aboot_init(const struct app_descriptor *app)
 	}
 #endif
 
+
+//No display XD
+#if 0 
 	/* Display splash screen if enabled */
 #if DISPLAY_SPLASH_SCREEN
 #if NO_ALARM_DISPLAY
@@ -4178,6 +4184,7 @@ void aboot_init(const struct app_descriptor *app)
 	dprintf(SPEW,"serial number: %s\n",sn_buf);
 
 	memset(display_panel_buf, '\0', MAX_PANEL_BUF_SIZE);
+#endif
 
 	/* Check if we should do something other than booting up */
 	if (keys_get_state(KEY_VOLUMEUP) && keys_get_state(KEY_VOLUMEDOWN))
@@ -4237,6 +4244,9 @@ void aboot_init(const struct app_descriptor *app)
 #endif
 #endif
 
+//Straight to fastboot.
+#if 0
+
 normal_boot:
 	if (!boot_into_fastboot)
 	{
@@ -4271,20 +4281,25 @@ normal_boot:
 		dprintf(CRITICAL, "ERROR: Could not do normal boot. Reverting "
 			"to fastboot mode.\n");
 	}
-
+#endif
 	/* We are here means regular boot did not happen. Start fastboot. */
 
+
+
+	
 	/* register aboot specific fastboot commands */
 	aboot_fastboot_register_commands();
 	fastboot_lk2nd_register_commands();
 
+
 	/* dump partition table for debug info */
 	partition_dump();
+
 
 	/* initialize and start fastboot */
 	fastboot_init(target_get_scratch_address(), target_get_max_flash_size());
 #if FBCON_DISPLAY_MSG
-	display_fastboot_menu();
+//	display_fastboot_menu();
 #endif
 }
 
