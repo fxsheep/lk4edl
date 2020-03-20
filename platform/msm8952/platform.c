@@ -56,6 +56,7 @@ enum
 } cpu_aff;
 #endif
 
+#define KB 1024
 #define MSM8976_SOC_V11 0x10001
 #define MSM_IOMAP_SIZE ((MSM_IOMAP_END - MSM_IOMAP_BASE)/MB)
 #define APPS_SS_SIZE   ((APPS_SS_END - APPS_SS_BASE)/MB)
@@ -75,15 +76,25 @@ enum
 #define SCRATCH_MEMORY    (MMU_MEMORY_TYPE_NORMAL_WRITE_BACK_ALLOCATE | \
 				MMU_MEMORY_AP_READ_WRITE | MMU_MEMORY_XN)
 
+#define RPM_CODE_MEMORY         (MMU_MEMORY_TYPE_DEVICE_SHARED | \
+                                MMU_MEMORY_AP_READ_WRITE | MMU_MEMORY_XN)
+
+#define RPM_DATA_MEMORY         (MMU_MEMORY_TYPE_DEVICE_SHARED \
+                                MMU_MEMORY_AP_READ_WRITE | MMU_MEMORY_XN)
+
+
 static mmu_section_t mmu_section_table[] = {
-/*           Physical addr,         Virtual addr,            Size (in MB),     Flags */
-	{    MEMBASE,               MEMBASE,                 (MEMSIZE / MB),         LK_MEMORY},
-	{    MSM_IOMAP_BASE,        MSM_IOMAP_BASE,          MSM_IOMAP_SIZE,         IOMAP_MEMORY},
-	{    APPS_SS_BASE,          APPS_SS_BASE,            APPS_SS_SIZE,           IOMAP_MEMORY},
-	{    MSM_SHARED_IMEM_BASE,  MSM_SHARED_IMEM_BASE,    1,                      COMMON_MEMORY},
-	{    SCRATCH_ADDR,          SCRATCH_ADDR,            511,                    SCRATCH_MEMORY},
-	{    MIPI_FB_ADDR,          MIPI_FB_ADDR,            20,                     COMMON_MEMORY},
-	{    RPMB_SND_RCV_BUF,      RPMB_SND_RCV_BUF,        RPMB_SND_RCV_BUF_SZ,    IOMAP_MEMORY},
+/*           Physical addr,         Virtual addr,            Size (in KB),     Flags */
+	{    MEMBASE,               MEMBASE,                 (MEMSIZE / KB),      LK_MEMORY},
+	{    MSM_IOMAP_BASE,        MSM_IOMAP_BASE,          MSM_IOMAP_SIZE * KB,      IOMAP_MEMORY},
+	{    APPS_SS_BASE,          APPS_SS_BASE,            APPS_SS_SIZE * KB,        IOMAP_MEMORY},
+	{    MSM_SHARED_IMEM_BASE,  MSM_SHARED_IMEM_BASE,    1 * KB,                   COMMON_MEMORY},
+	{    SCRATCH_ADDR,          SCRATCH_ADDR,            511 * KB,                 SCRATCH_MEMORY},
+	{    MIPI_FB_ADDR,          MIPI_FB_ADDR,            20 * KB,                  COMMON_MEMORY},
+	{    RPMB_SND_RCV_BUF,      RPMB_SND_RCV_BUF,        RPMB_SND_RCV_BUF_SZ * KB, IOMAP_MEMORY},
+        {    RPM_CODE_RAM_BASE,     RPM_CODE_RAM_BASE,       128,                      IOMAP_MEMORY},
+        {    RPM_DATA_RAM_BASE,     RPM_DATA_RAM_BASE,       64,                       IOMAP_MEMORY},
+
 };
 
 void platform_early_init(void)
@@ -152,9 +163,9 @@ void platform_init_mmu_mappings(void)
 		while (sections--)
 		{
 			arm_mmu_map_section(mmu_section_table[i].paddress +
-								sections * MB,
+								sections * KB,
 								mmu_section_table[i].vaddress +
-								sections * MB,
+								sections * KB,
 								mmu_section_table[i].flags);
 		}
 	}

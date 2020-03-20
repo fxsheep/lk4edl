@@ -32,6 +32,9 @@
 #define MSM_IOMAP_BASE                     0x00000000
 #define MSM_IOMAP_END                      0x08000000
 
+#define RPM_CODE_RAM_BASE                  0x00200000
+#define RPM_DATA_RAM_BASE                  0x00290000
+
 #define SDRAM_START_ADDR                   0x80000000
 
 #define DDR_START                          get_ddr_start()
