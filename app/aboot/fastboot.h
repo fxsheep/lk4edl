@@ -56,5 +56,6 @@ void fastboot_fail(const char *reason);
 void fastboot_info(const char *reason);
 void fastboot_stage(const void *data, unsigned sz);
 
+void fastboot_rpm_register_commands(void);
 
 #endif
