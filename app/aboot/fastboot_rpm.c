@@ -11,7 +11,9 @@
 
 void cmd_boot_edl(void) {
         fastboot_info("Booting to EDL from LK...");
-    	__asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
+	target_uninit();
+    	platform_uninit();
+	__asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
         __asm("LDR R0, =0x08003100; LDR PC, =0x08008B30;");
 
 }
