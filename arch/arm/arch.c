@@ -48,7 +48,7 @@ void arch_early_init(void)
 	//Reached here.
 
 #if ARM_WITH_MMU
-	arm_mmu_init();
+//	arm_mmu_init();
 
 #endif
 
