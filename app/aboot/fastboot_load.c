@@ -9,12 +9,107 @@
 #include <reboot.h>
 #include <lib/elf.h>
 
+void mmu_dacr_off(void) {
+        __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
+}
+static int run_elf(void *entry_point) {
+    void (*elf_start)(void) = (void *)entry_point;
+    printf("elf (%p) running ...\n", entry_point);
+    thread_sleep(10);
+    elf_start();
+    printf("elf (%p) finished\n", entry_point);
+    return 0;
+}
+
+static void process_elf_blob(const void *start, size_t len) {
+    void *entrypt;
+    elf_handle_t elf;
+
+    status_t st = elf_open_handle_memory(&elf, start, len);
+    if (st < 0) {
+        dprintf(CRITICAL, "unable to open elf handle\n");
+        return;
+    }
+
+    st = elf_load(&elf);
+    if (st < 0) {
+        dprintf(CRITICAL, "elf processing failed, status : %d\n", st);
+        goto exit;
+    }
+
+    entrypt = (void *)elf.entry;
+    if (entrypt < start || entrypt >= (void *)((char *)start + len)) {
+        dprintf(CRITICAL, "out of bounds entrypoint for elf : %p\n", entrypt);
+        goto exit;
+    }
+
+    dprintf(INFO, "elf looks good\n");
+    //thread_resume(thread_create("elf_runner", &run_elf, entrypt,
+    //                            DEFAULT_PRIORITY, DEFAULT_STACK_SIZE));
+exit:
+    elf_close_handle(&elf);
+}
+
 void cmd_boot_edl(void) {
         fastboot_info("Booting to EDL from LK...");
 	target_uninit();
     	platform_uninit();
 	__asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
         __asm("LDR R0, =0x08003100; LDR PC, =0x08008B30;");
+
+}
+
+void cmd_load_sbl1(void) {
+        char buf[1024];
+        int index = INVALID_PTN;
+        unsigned long long ptn = 0;
+        uint32_t blocksize, realsize, readsize;
+        uint32_t *elf_buffer;
+	fastboot_info("Start chainloading SBL1...");
+	elf_buffer = target_get_scratch_address();
+        if(!elf_buffer){
+                dprintf(CRITICAL, "ERROR: failed to allocate memory\n");
+                goto fail;
+        }
+
+        fastboot_info("Reading sbl1bak from mmc...");
+        index = partition_get_index("sbl1bak");
+        if (index == 0) {
+                dprintf(CRITICAL, "ERROR: Partition not found\n");
+                goto fail;
+        }
+
+        ptn = partition_get_offset(index);
+        if (ptn == 0) {
+                dprintf(CRITICAL, "ERROR: Invalid partition\n");
+                goto fail;
+        }
+
+        mmc_set_lun(partition_get_lun(index));
+
+        blocksize = mmc_get_device_blocksize();
+        if (blocksize == 0) {
+                dprintf(CRITICAL, "ERROR:Invalid blocksize\n");
+                goto fail;
+        }
+
+        if (mmc_read(ptn, (uint32_t *)elf_buffer, blocksize)) {
+                dprintf(CRITICAL, "ERROR: Cannot read splash image header\n");
+                goto fail;
+        }
+	
+	mmu_dacr_off();
+
+        //snprintf(buf, sizeof(buf), "\te_entry: 0x%08x", elf32hdr->e_entry);
+        //fastboot_info(buf);
+
+        fastboot_send_string_human(elf_buffer,4);
+	process_elf_blob(elf_buffer, blocksize);
+	fastboot_okay("");
+	return;
+fail:
+
+        fastboot_fail("");
 
 }
 
@@ -84,4 +179,5 @@ fail:
 void fastboot_rpm_register_commands(void) {
 //        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
         fastboot_register("oem boot-edl",cmd_boot_edl);
+	fastboot_register("oem load-sbl1",cmd_load_sbl1);
 }
