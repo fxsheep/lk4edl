@@ -4,13 +4,13 @@ INCLUDES += -I$(LK_TOP_DIR)/platform/msm_shared/include -I$(LK_TOP_DIR)/lib/zlib
 
 DEFINES += ASSERT_ON_TAMPER=1
 
-MODULES += lib/zlib_inflate
-
+MODULES += lib/zlib_inflate \
+	lib/elf
 OBJS += \
 	$(LOCAL_DIR)/aboot.o \
 	$(LOCAL_DIR)/fastboot.o \
 	$(LOCAL_DIR)/fastboot-lk2nd.o \
-	$(LOCAL_DIR)/fastboot_rpm.o \
+	$(LOCAL_DIR)/fastboot_load.o \
 	$(LOCAL_DIR)/recovery.o
 
 ifeq ($(ENABLE_UNITTEST_FW), 1)

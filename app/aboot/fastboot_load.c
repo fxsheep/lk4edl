@@ -1,13 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fastboot.h"
-#include "elf.h"
 #include <arch/defines.h>
 #include <mmc.h>
 #include <partition_parser.h>
 #include <platform.h>
 #include <target.h>
 #include <reboot.h>
+#include <lib/elf.h>
 
 void cmd_boot_edl(void) {
         fastboot_info("Booting to EDL from LK...");
@@ -18,6 +18,7 @@ void cmd_boot_edl(void) {
 
 }
 
+#if 0
 void cmd_rpm_read_fw(void) {
 	char buf[1024];
 	int index = INVALID_PTN;
@@ -78,8 +79,9 @@ fail:
 	fastboot_fail("");
 
 }
+#endif
 
 void fastboot_rpm_register_commands(void) {
-        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
+//        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
         fastboot_register("oem boot-edl",cmd_boot_edl);
 }
