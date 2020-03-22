@@ -47,7 +47,6 @@ static void process_elf_blob(const void *start, size_t len) {
     target_uninit();
     platform_uninit();
     
-    __asm("MOV R1, #0;LDR R2, =0x004AB000;STR R1, [R2];");
     __asm("LDR R0, =0x08003100;");
     elf_start();
     dprintf(INFO, "elf (%p) finished\n", entrypt);
