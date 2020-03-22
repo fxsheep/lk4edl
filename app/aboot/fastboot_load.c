@@ -12,14 +12,7 @@
 void mmu_dacr_off(void) {
         __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
 }
-static int run_elf(void *entry_point) {
-    void (*elf_start)(void) = (void *)entry_point;
-    printf("elf (%p) running ...\n", entry_point);
-    thread_sleep(10);
-    elf_start();
-    printf("elf (%p) finished\n", entry_point);
-    return 0;
-}
+
 
 static void process_elf_blob(const void *start, size_t len) {
     void *entrypt;
@@ -38,14 +31,22 @@ static void process_elf_blob(const void *start, size_t len) {
     }
 
     entrypt = (void *)elf.entry;
+/***
     if (entrypt < start || entrypt >= (void *)((char *)start + len)) {
         dprintf(CRITICAL, "out of bounds entrypoint for elf : %p\n", entrypt);
         goto exit;
     }
+***/
 
     dprintf(INFO, "elf looks good\n");
-    //thread_resume(thread_create("elf_runner", &run_elf, entrypt,
-    //                            DEFAULT_PRIORITY, DEFAULT_STACK_SIZE));
+
+    void (*elf_start)(void) = (void *)entrypt;
+    printf("elf (%p) running ...\n", entrypt);
+    thread_sleep(10);
+    __asm("LDR R0, =0x08003100;");
+    elf_start();
+    printf("elf (%p) finished\n", entrypt);
+
 exit:
     elf_close_handle(&elf);
 }
@@ -106,15 +107,15 @@ void cmd_load_sbl1(void) {
 	
 	mmu_dacr_off();
 
-        //snprintf(buf, sizeof(buf), "\te_entry: 0x%08x", elf32hdr->e_entry);
-        //fastboot_info(buf);
-
-        fastboot_send_string_human(elf_buffer,4);
         snprintf(buf, sizeof(buf), "\treadsize: %d", readsize);
         fastboot_info(buf);
+        fastboot_okay("");
+
+        target_uninit();
+        platform_uninit();
 
 	process_elf_blob(elf_buffer, readsize);
-	fastboot_okay("");
+	//Never
 	return;
 fail:
 
