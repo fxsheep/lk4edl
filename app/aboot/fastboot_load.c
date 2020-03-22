@@ -93,6 +93,12 @@ void cmd_load_sbl1(void) {
                 goto fail;
         }
 
+	readsize = partition_get_size(index);
+        if (readsize == 0) {
+                dprintf(CRITICAL, "ERROR:Invalid partition size\n");
+                goto fail;
+        }
+
         if (mmc_read(ptn, (uint32_t *)elf_buffer, blocksize)) {
                 dprintf(CRITICAL, "ERROR: Cannot read splash image header\n");
                 goto fail;
@@ -104,7 +110,10 @@ void cmd_load_sbl1(void) {
         //fastboot_info(buf);
 
         fastboot_send_string_human(elf_buffer,4);
-	process_elf_blob(elf_buffer, blocksize);
+        snprintf(buf, sizeof(buf), "\treadsize: %d", readsize);
+        fastboot_info(buf);
+
+	process_elf_blob(elf_buffer, readsize);
 	fastboot_okay("");
 	return;
 fail:
