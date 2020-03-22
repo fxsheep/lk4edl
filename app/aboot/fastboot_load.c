@@ -39,13 +39,18 @@ static void process_elf_blob(const void *start, size_t len) {
 ***/
 
     dprintf(INFO, "elf looks good\n");
+    elf_close_handle(&elf);
 
     void (*elf_start)(void) = (void *)entrypt;
-    printf("elf (%p) running ...\n", entrypt);
-    thread_sleep(10);
+    dprintf(INFO, "elf (%p) running ...\n", entrypt);
+
+    target_uninit();
+    platform_uninit();
+    
+    __asm("MOV R1, #0;LDR R2, =0x004AB000;STR R1, [R2];");
     __asm("LDR R0, =0x08003100;");
     elf_start();
-    printf("elf (%p) finished\n", entrypt);
+    dprintf(INFO, "elf (%p) finished\n", entrypt);
 
 exit:
     elf_close_handle(&elf);
@@ -111,8 +116,8 @@ void cmd_load_sbl1(void) {
         fastboot_info(buf);
         fastboot_okay("");
 
-        target_uninit();
-        platform_uninit();
+//        target_uninit();
+//  	platform_uninit();
 
 	process_elf_blob(elf_buffer, readsize);
 	//Never
