@@ -62,6 +62,20 @@ void cmd_boot_edl(void) {
 	fastboot_info("Booting to EDL from LK...");
         fastboot_info("Applying some patches first");
 	*patch1 = 0x47702000; //BX LR
+
+//PBL shared data patch, Start	
+        
+	//This disables forced EDL mode flag, avoiding boot_dload_check
+	int *pbl2sbl_dload;
+        pbl2sbl_dload = 0x08003116;
+        *pbl2sbl_dload = 0x0;
+
+
+//PBL shared data patch, End
+        //int *patch3;
+        //patch3 = 0x08020014;
+        //*patch3 = 0xE7FEE7FE;
+
 	target_uninit();
     	platform_uninit();
 	__asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
