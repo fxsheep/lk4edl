@@ -39,8 +39,8 @@ static void process_elf_blob(const void *start, size_t len) {
 ***/
 
     dprintf(INFO, "elf looks good\n");
-    elf_close_handle(&elf);
-
+    //elf_close_handle(&elf);
+    
     void (*elf_start)(void) = (void *)entrypt;
     dprintf(INFO, "elf (%p) running ...\n", entrypt);
 
@@ -48,7 +48,8 @@ static void process_elf_blob(const void *start, size_t len) {
     platform_uninit();
     
     __asm("LDR R0, =0x08003100;");
-    elf_start();
+    __asm("LDR PC, =0x08006730;");
+    //elf_start();
     dprintf(INFO, "elf (%p) finished\n", entrypt);
 
 exit:
@@ -56,7 +57,11 @@ exit:
 }
 
 void cmd_boot_edl(void) {
-        fastboot_info("Booting to EDL from LK...");
+        int *patch1;
+	patch1 = 0x0802219C; //boot_hand_control_to_deviceprogrammer_ddr_main
+	fastboot_info("Booting to EDL from LK...");
+        fastboot_info("Applying some patches first");
+	*patch1 = 0x00004770; //BX LR
 	target_uninit();
     	platform_uninit();
 	__asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
