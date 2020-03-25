@@ -61,7 +61,7 @@ void cmd_boot_edl(void) {
 	patch1 = 0x0802219C; //boot_hand_control_to_deviceprogrammer_ddr_main
 	fastboot_info("Booting to EDL from LK...");
         fastboot_info("Applying some patches first");
-	*patch1 = 0x00004770; //BX LR
+	*patch1 = 0x47702000; //BX LR
 	target_uninit();
     	platform_uninit();
 	__asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
