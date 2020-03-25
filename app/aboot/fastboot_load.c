@@ -57,9 +57,18 @@ exit:
 }
 
 void cmd_boot_edl(void) {
+        fastboot_info("Booting to EDL from LK...");
+        target_uninit();
+        platform_uninit();
+        __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
+        __asm("LDR R0, =0x08003100; LDR PC, =0x08008B30;");
+
+}
+
+void cmd_boot_edl2sbl(void) {
         int *patch1;
 	patch1 = 0x0802219C; //boot_hand_control_to_deviceprogrammer_ddr_main
-	fastboot_info("Booting to EDL from LK...");
+	fastboot_info("Booting to patched EDL from LK...");
         fastboot_info("Applying some patches first");
 	*patch1 = 0x47702000; //BX LR
 
@@ -212,5 +221,6 @@ fail:
 void fastboot_rpm_register_commands(void) {
 //        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
         fastboot_register("oem boot-edl",cmd_boot_edl);
+        fastboot_register("oem boot-edl-sbl",cmd_boot_edl2sbl);
 	fastboot_register("oem load-sbl1",cmd_load_sbl1);
 }
