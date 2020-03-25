@@ -9,6 +9,10 @@
 #include <reboot.h>
 #include <lib/elf.h>
 
+#define PBL_SIZE (98304)
+#define PBL_BASE_ADDR (0x100000)
+#define PBL_COPY_ADDR (0x8068000)
+
 void mmu_dacr_off(void) {
         __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
 }
@@ -72,6 +76,16 @@ void cmd_boot_edl2sbl(void) {
         fastboot_info("Applying some patches first");
 	*patch1 = 0x47702000; //BX LR
 
+	int *patch;
+	patch = 0x08020C2C;
+	*patch = 0x49012000;
+
+	patch = 0x08020C30;
+	*patch = 0x00006008;
+
+	patch = 0x08020C34;
+	*patch = 0x4AB000;
+
 //PBL shared data patch, Start	
         
 	//This disables forced EDL mode flag, avoiding boot_dload_check
@@ -91,6 +105,72 @@ void cmd_boot_edl2sbl(void) {
         __asm("LDR R0, =0x08003100; LDR PC, =0x08008B30;");
 
 }
+
+void cmd_boot_pbl(void) {
+	mmu_dacr_off();
+        target_uninit();
+        platform_uninit();
+        __asm("LDR PC, =0x100000;");
+
+}
+
+void cmd_boot_pbl_patched(void) {
+        char buf[1024];
+        int index = INVALID_PTN;
+        unsigned long long ptn = 0;
+        uint32_t blocksize, realsize, readsize;
+        uint32_t *pbl_buffer;
+
+	mmu_dacr_off();
+
+	fastboot_info("Start loading PBL...");
+	pbl_buffer = target_get_scratch_address();
+        fastboot_info("Reading patched PBL from mmc...");
+        index = partition_get_index("mota");
+        if (index == 0) {
+                dprintf(CRITICAL, "ERROR: Partition not found\n");
+                goto fail;
+        }
+
+        ptn = partition_get_offset(index);
+        if (ptn == 0) {
+                dprintf(CRITICAL, "ERROR: Invalid partition\n");
+                goto fail;
+        }
+
+        mmc_set_lun(partition_get_lun(index));
+
+        blocksize = mmc_get_device_blocksize();
+        if (blocksize == 0) {
+                dprintf(CRITICAL, "ERROR:Invalid blocksize\n");
+                goto fail;
+        }
+
+        readsize = partition_get_size(index);
+        if (readsize < PBL_SIZE) {
+                dprintf(CRITICAL, "ERROR:Invalid partition size\n");
+                goto fail;
+        }
+
+        if (mmc_read(ptn, (uint32_t *)pbl_buffer, PBL_SIZE)) {
+                dprintf(CRITICAL, "ERROR: Cannot read patched PBL\n");
+                goto fail;
+        }
+	memcpy(PBL_COPY_ADDR, pbl_buffer, PBL_SIZE);
+
+        fastboot_send_string_human(PBL_COPY_ADDR,4);
+	
+//	target_uninit();
+//        platform_uninit();
+        __asm("LDR PC, =0xA0100000;");
+
+fail:
+
+        fastboot_fail("error");
+
+}
+
+
 
 void cmd_load_sbl1(void) {
         char buf[1024];
@@ -132,7 +212,7 @@ void cmd_load_sbl1(void) {
                 goto fail;
         }
 
-        if (mmc_read(ptn, (uint32_t *)elf_buffer, blocksize)) {
+        if (mmc_read(ptn, (uint32_t *)elf_buffer, readsize)) {
                 dprintf(CRITICAL, "ERROR: Cannot read splash image header\n");
                 goto fail;
         }
@@ -223,4 +303,6 @@ void fastboot_rpm_register_commands(void) {
         fastboot_register("oem boot-edl",cmd_boot_edl);
         fastboot_register("oem boot-edl-sbl",cmd_boot_edl2sbl);
 	fastboot_register("oem load-sbl1",cmd_load_sbl1);
+        fastboot_register("oem boot-pbl",cmd_boot_pbl);
+        fastboot_register("oem boot-pbl-patched",cmd_boot_pbl_patched);
 }
