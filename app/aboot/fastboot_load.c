@@ -12,7 +12,7 @@
 
 #define PBL_SIZE (98304)
 #define PBL_BASE_ADDR (0x100000)
-#define PBL_COPY_ADDR (0x08080000)
+#define PBL_COPY_ADDR (0x8068000)
 
 
 #define PT_GET_TYPE(x) (x & 3)
