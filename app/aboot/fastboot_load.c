@@ -100,6 +100,11 @@ void pageremap(void) {
     arm_write_cr1(arm_read_cr1() | 0x0);
     dprintf(INFO, "Remapping pages\n");
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR, PBL_COPY_ADDR);   
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x3000, PBL_COPY_ADDR + 0x3000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x4000, PBL_COPY_ADDR + 0x4000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x5000, PBL_COPY_ADDR + 0x5000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xD000, PBL_COPY_ADDR + 0xD000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x10000, PBL_COPY_ADDR + 0x10000);
     arm_invalidate_tlb();
     arm_write_cr1(arm_read_cr1() | 0x1);
     return;
@@ -254,8 +259,9 @@ void cmd_boot_pbl_patched(void) {
         fastboot_send_string_human(PBL_BASE_ADDR,4);
         fastboot_info("COPY_AFTER:");
         fastboot_send_string_human(PBL_COPY_ADDR,4);
+	
+	fastboot_okay("Booting now");
 
-	return;	
 	target_uninit();
         platform_uninit();
         __asm("LDR PC, =0x100000;");
