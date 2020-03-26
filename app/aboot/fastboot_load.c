@@ -110,6 +110,11 @@ void pageremap(void) {
     return;
 }
 
+void patch_pbl(uint32_t *addr, uint32_t value) {
+	*addr = value;
+	return;
+}
+
 static void process_elf_blob(const void *start, size_t len) {
     void *entrypt;
     elf_handle_t elf;
@@ -207,61 +212,11 @@ void cmd_boot_pbl(void) {
 }
 
 void cmd_boot_pbl_patched(void) {
-        char buf[1024];
-        int index = INVALID_PTN;
-        unsigned long long ptn = 0;
-        uint32_t blocksize, realsize, readsize;
-        uint32_t *pbl_buffer;
-
 	mmu_dacr_off();
-
-	fastboot_info("Start loading PBL...");
-	pbl_buffer = target_get_scratch_address();
-        fastboot_info("Reading patched PBL from mmc...");
-        index = partition_get_index("mota");
-        if (index == 0) {
-                dprintf(CRITICAL, "ERROR: Partition not found\n");
-                goto fail;
-        }
-
-        ptn = partition_get_offset(index);
-        if (ptn == 0) {
-                dprintf(CRITICAL, "ERROR: Invalid partition\n");
-                goto fail;
-        }
-
-        mmc_set_lun(partition_get_lun(index));
-
-        blocksize = mmc_get_device_blocksize();
-        if (blocksize == 0) {
-                dprintf(CRITICAL, "ERROR:Invalid blocksize\n");
-                goto fail;
-        }
-
-        readsize = partition_get_size(index);
-        if (readsize < PBL_SIZE) {
-                dprintf(CRITICAL, "ERROR:Invalid partition size\n");
-                goto fail;
-        }
-
-        if (mmc_read(ptn, (uint32_t *)pbl_buffer, PBL_SIZE)) {
-                dprintf(CRITICAL, "ERROR: Cannot read patched PBL\n");
-                goto fail;
-        }
-	memcpy(PBL_COPY_ADDR, pbl_buffer, PBL_SIZE);
-
-	fastboot_info("COPY:");
-        fastboot_send_string_human(PBL_COPY_ADDR,4);
-	fastboot_info("BASE:");
-        fastboot_send_string_human(PBL_BASE_ADDR,4);
+	fastboot_info("Start copying PBL...");
+	memcpy(PBL_COPY_ADDR, PBL_BASE_ADDR, PBL_SIZE);
         pageremap();
-        fastboot_info("BASE_AFTER:");
-        fastboot_send_string_human(PBL_BASE_ADDR,4);
-        fastboot_info("COPY_AFTER:");
-        fastboot_send_string_human(PBL_COPY_ADDR,4);
-	
 	fastboot_okay("Booting now");
-
 	target_uninit();
         platform_uninit();
         __asm("LDR PC, =0x100000;");
