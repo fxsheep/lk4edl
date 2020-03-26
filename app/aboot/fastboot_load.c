@@ -2,6 +2,7 @@
 #include <string.h>
 #include "fastboot.h"
 #include <arch/defines.h>
+#include <asm.h>
 #include <mmc.h>
 #include <partition_parser.h>
 #include <platform.h>
@@ -13,10 +14,94 @@
 #define PBL_BASE_ADDR (0x100000)
 #define PBL_COPY_ADDR (0x8068000)
 
+
+#define PT_GET_TYPE(x) (x & 3)
+
+#define PT_FLD_GET_TYPE(x) (PT_GET_TYPE(x))
+#define PT_SLD_GET_TYPE(x) (PT_GET_TYPE(x))
+
+#define PT_FLD_TYPE_FAULT    (0)
+#define PT_FLD_TYPE_PT       (1)
+#define PT_FLD_TYPE_SECTION  (2)
+#define PT_FLD_TYPE_RESERVED (3)
+
+
+#define PT_SLD_TYPE_UNSUPPORTED   (0)
+#define PT_SLD_TYPE_LP            (1)
+#define PT_SLD_TYPE_XSP           (2)
+#define PT_SLD_TYPE_XSP_WITH_NX   (3)
+
+#define PT_FL_OFFSET(x) ((uint32_t)x >> 20)
+#define PT_SL_OFFSET(x) (((uint32_t)x & 0xFF000)>>12)
+
+
 void mmu_dacr_off(void) {
         __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
 }
 
+/*
+ * Returns the first level descriptor (page table entry) of the given virtual address
+ */
+uint32_t pt_get_first_level_descriptor(uint32_t *addr)
+{
+    uint32_t *base = (uint32_t *)arm_read_ttbr();
+    dprintf(INFO, "arm_read_ttbr:%x\n", base);
+    return base[PT_FL_OFFSET(addr)];
+}
+
+
+/*
+ * Returns the address of the second level descriptor (page table entry) for the given virtual address
+ */
+uint32_t *pt_get_second_level_descriptor_ptr(uint32_t *addr)
+{
+    uint32_t fl = pt_get_first_level_descriptor(addr);
+    dprintf(INFO, "pt_get_first_level_descriptor:%x\n", fl);
+
+    //assert PT_FLD_GET_TYPE(fl) == PT_FLD_TYPE_PT;
+    uint32_t *base = (uint32_t *)((fl >> 10) << 10);
+    return &base[PT_SL_OFFSET(addr)];
+}
+
+
+/*
+ * Returns the second level descriptor (page table entry) of the given virtual address
+ */
+uint32_t pt_get_second_level_descriptor(uint32_t *addr)
+{
+    return *pt_get_second_level_descriptor_ptr(addr);
+}
+
+
+/*
+ * Sets the second level descriptor (page table entry) of the given virtual address with the given value
+ */
+void pt_set_second_level_descriptor(uint32_t *addr, uint32_t val)
+{
+    uint32_t *sladdr = pt_get_second_level_descriptor_ptr(addr);
+    *sladdr = val;
+}
+
+
+/*
+ * Sets the second level descriptor (page table entry) of the given virtual address (va)
+ * with the second level descriptor of another virtual address (new_va)
+ */
+
+void pt_second_level_xsmallpage_remap(uint32_t *va, uint32_t *new_va) 
+{
+    uint32_t new_sl = pt_get_second_level_descriptor(new_va);
+    dprintf(INFO, "pt_get_second_level_descriptor:%x\n", new_sl);
+    pt_set_second_level_descriptor(va, new_sl);
+}
+
+
+void pageremap(void) {
+    dprintf(INFO, "Remapping pages\n");
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR, PBL_COPY_ADDR);   
+    arm_invalidate_tlb();
+    return;
+}
 
 static void process_elf_blob(const void *start, size_t len) {
     void *entrypt;
@@ -158,11 +243,20 @@ void cmd_boot_pbl_patched(void) {
         }
 	memcpy(PBL_COPY_ADDR, pbl_buffer, PBL_SIZE);
 
+	fastboot_info("COPY:");
         fastboot_send_string_human(PBL_COPY_ADDR,4);
-	
-//	target_uninit();
-//        platform_uninit();
-        __asm("LDR PC, =0xA0100000;");
+	fastboot_info("BASE:");
+        fastboot_send_string_human(PBL_BASE_ADDR,4);
+        pageremap();
+        fastboot_info("BASE_AFTER:");
+        fastboot_send_string_human(PBL_BASE_ADDR,4);
+        fastboot_info("COPY_AFTER:");
+        fastboot_send_string_human(PBL_COPY_ADDR,4);
+
+	return;	
+	target_uninit();
+        platform_uninit();
+        __asm("LDR PC, =0x100000;");
 
 fail:
 

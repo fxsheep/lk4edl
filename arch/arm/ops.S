@@ -238,6 +238,12 @@ FUNCTION(arm_write_ttbr)
 	mcr	p15, 0, r0, c2, c0, 0
 	bx		lr
 
+/*(uint32 *)arm_read_ttbr(void) */
+FUNCTION(arm_read_ttbr)
+        mrc     p15, 0, r0, c2, c0, 0
+        bx              lr
+
+
 /* void arm_write_dacr(uint32_t val) */
 FUNCTION(arm_write_dacr)
 	mcr	p15, 0, r0, c3, c0, 0
