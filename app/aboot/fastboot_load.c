@@ -12,7 +12,7 @@
 
 #define PBL_SIZE (98304)
 #define PBL_BASE_ADDR (0x100000)
-#define PBL_COPY_ADDR (0x8068000)
+#define PBL_COPY_ADDR (0x08080000)
 
 
 #define PT_GET_TYPE(x) (x & 3)
@@ -97,9 +97,11 @@ void pt_second_level_xsmallpage_remap(uint32_t *va, uint32_t *new_va)
 
 
 void pageremap(void) {
+    arm_write_cr1(arm_read_cr1() | 0x0);
     dprintf(INFO, "Remapping pages\n");
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR, PBL_COPY_ADDR);   
     arm_invalidate_tlb();
+    arm_write_cr1(arm_read_cr1() | 0x1);
     return;
 }
 
