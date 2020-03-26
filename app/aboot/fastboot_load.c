@@ -12,7 +12,7 @@
 
 #define PBL_SIZE (98304)
 #define PBL_BASE_ADDR (0x100000)
-#define PBL_COPY_ADDR (0x8068000)
+#define PBL_COPY_ADDR (0x08080000) //0x8068000 DOESN'T WORK
 
 
 #define PT_GET_TYPE(x) (x & 3)
@@ -112,6 +112,15 @@ void pageremap(void) {
 
 void patch_pbl(uint32_t *addr, uint32_t value) {
 	*addr = value;
+	return;
+}
+
+void patch_pbl_nop(uint32_t *start, uint32_t *end) {
+	int i, n;
+	n = (end - start) / 4;
+	for(i = 0; i <= n; i++) {
+		patch_pbl(start + n * 4, 0xE1A00000);
+	}
 	return;
 }
 
@@ -215,15 +224,26 @@ void cmd_boot_pbl_patched(void) {
 	mmu_dacr_off();
 	fastboot_info("Start copying PBL...");
 	memcpy(PBL_COPY_ADDR, PBL_BASE_ADDR, PBL_SIZE);
-        pageremap();
-	fastboot_okay("Booting now");
+        fastboot_info("Remapping PBL");
+	pageremap();
+	fastboot_info("Patching PBL");
+
+	//DACR:Set ourselves as manager
+//	patch_pbl(0x110008, 0xE3E00000); //IDK WHY THIS DOESN'T WOR, kek
+	//Disable MMU reset
+	patch_pbl(0x110014, 0xE1A00000);
+	//Disable page table init
+	patch_pbl_nop(0x110678, 0x1107B8);
+	patch_pbl(0x1107B8, 0xE3A05000);
+	//pbl_auth patch (to avoid a side effect)
+	patch_pbl(0x103478, 0xEA000004);
+	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
+	patch_pbl(0x10D314, 0xDEADBA2C);
+	fastboot_info("Booting now");
+	fastboot_okay("");
 	target_uninit();
         platform_uninit();
         __asm("LDR PC, =0x100000;");
-
-fail:
-
-        fastboot_fail("error");
 
 }
 
