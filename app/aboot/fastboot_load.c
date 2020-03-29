@@ -115,10 +115,13 @@ void patch_pbl(uint32_t *addr, uint32_t value) {
 	return;
 }
 
-void patch_pbl_nop(uint32_t *start, uint32_t *end) {
+void patch_pbl_nop(uint32_t start, uint32_t end) {
 	int i, n;
 	n = (end - start) / 4;
+	dprintf(CRITICAL, "n = %d\n", n);
+	
 	for(i = 0; i <= n; i++) {
+		dprintf(CRITICAL, "patch:%x \n",start + i*4);
 		patch_pbl(start + i * 4, 0xE1A00000);
 	}
 	return;
@@ -241,6 +244,7 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x10D314, 0xDEADBA2C);
 	fastboot_info("Booting now");
 	fastboot_okay("");
+	        memcpy(0xB0005000, PBL_BASE_ADDR, PBL_SIZE);
 	target_uninit();
         platform_uninit();
         __asm("LDR PC, =0x100000;");
