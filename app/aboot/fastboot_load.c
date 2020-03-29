@@ -119,7 +119,7 @@ void patch_pbl_nop(uint32_t *start, uint32_t *end) {
 	int i, n;
 	n = (end - start) / 4;
 	for(i = 0; i <= n; i++) {
-		patch_pbl(start + n * 4, 0xE1A00000);
+		patch_pbl(start + i * 4, 0xE1A00000);
 	}
 	return;
 }
