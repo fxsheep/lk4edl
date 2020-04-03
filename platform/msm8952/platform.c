@@ -92,8 +92,8 @@ static mmu_section_t mmu_section_table[] = {
 	{    SCRATCH_ADDR,          SCRATCH_ADDR,            511 * KB,                 SCRATCH_MEMORY},
 	{    MIPI_FB_ADDR,          MIPI_FB_ADDR,            20 * KB,                  COMMON_MEMORY},
 	{    RPMB_SND_RCV_BUF,      RPMB_SND_RCV_BUF,        RPMB_SND_RCV_BUF_SZ * KB, IOMAP_MEMORY},
-        {    RPM_CODE_RAM_BASE,     RPM_CODE_RAM_BASE,       128,                      IOMAP_MEMORY},
-        {    RPM_DATA_RAM_BASE,     RPM_DATA_RAM_BASE,       64,                       IOMAP_MEMORY},
+        {    RPM_CODE_RAM_BASE,     RPM_CODE_RAM_BASE,       128,                      COMMON_MEMORY},
+        {    RPM_DATA_RAM_BASE,     RPM_DATA_RAM_BASE,       64,                       COMMON_MEMORY},
 
 };
 
