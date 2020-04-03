@@ -34,6 +34,17 @@
 #define PT_FL_OFFSET(x) ((uint32_t)x >> 20)
 #define PT_SL_OFFSET(x) (((uint32_t)x & 0xFF000)>>12)
 
+#define RPM_PROC_CLOCK (0x1860000)
+#define RPM_READY_FLAG (0x1956000)
+
+void rpm_start(void) {
+	*(uint32 *)(RPM_PROC_CLOCK) = *(uint32 *)(RPM_PROC_CLOCK) & 0xE;
+	return;
+}
+
+int is_rpm_started(void) {
+	return *(uint32 *)(RPM_READY_FLAG) & 2; 
+}
 
 void mmu_dacr_off(void) {
         __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
