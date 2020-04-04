@@ -390,6 +390,99 @@ fail:
 }
 #endif
 
+void test_read_rpmdata(void) {
+        char buf[1024];
+        snprintf(buf, sizeof(buf), "\tis rpm started %d\n", is_rpm_started());
+	fastboot_info(buf);
+        snprintf(buf, sizeof(buf), "\trpm proc clock %x\n",*(uint32 *)(RPM_PROC_CLOCK));
+        fastboot_info(buf);
+        fastboot_okay("");
+	return;
+}
+
+static void load_elf_blob(const void *start, size_t len) {
+    void *entrypt;
+    elf_handle_t elf;
+
+    status_t st = elf_open_handle_memory(&elf, start, len);
+    if (st < 0) {
+        dprintf(CRITICAL, "unable to open elf handle\n");
+        return;
+    }
+    st = elf_load(&elf);
+    if (st < 0) {
+        dprintf(CRITICAL, "elf processing failed, status : %d\n", st);
+        goto exit;
+    }
+
+    entrypt = (void *)elf.entry;
+
+    dprintf(INFO, "elf looks good\n");
+exit:
+    elf_close_handle(&elf);
+    return;
+}
+
+void rpm_load_fw(void) {
+        char buf[1024];
+        int index = INVALID_PTN;
+        unsigned long long ptn = 0;
+        uint32_t blocksize, realsize, readsize;
+        uint32_t *elf_buffer;
+	fastboot_info("Start loading RPM FW...");
+	elf_buffer = target_get_scratch_address();
+        if(!elf_buffer){
+                dprintf(CRITICAL, "ERROR: failed to allocate memory\n");
+                goto fail;
+        }
+
+        fastboot_info("Reading rpm from mmc...");
+        index = partition_get_index("rpm");
+        if (index == 0) {
+                dprintf(CRITICAL, "ERROR: Partition not found\n");
+                goto fail;
+        }
+
+        ptn = partition_get_offset(index);
+        if (ptn == 0) {
+                dprintf(CRITICAL, "ERROR: Invalid partition\n");
+                goto fail;
+        }
+
+        mmc_set_lun(partition_get_lun(index));
+
+        blocksize = mmc_get_device_blocksize();
+        if (blocksize == 0) {
+                dprintf(CRITICAL, "ERROR:Invalid blocksize\n");
+                goto fail;
+        }
+
+	readsize = partition_get_size(index);
+        if (readsize == 0) {
+                dprintf(CRITICAL, "ERROR:Invalid partition size\n");
+                goto fail;
+        }
+
+        if (mmc_read(ptn, (uint32_t *)elf_buffer, readsize)) {
+                dprintf(CRITICAL, "ERROR: Cannot read splash image header\n");
+                goto fail;
+        }
+	
+
+        snprintf(buf, sizeof(buf), "\treadsize: %d", readsize);
+        fastboot_info(buf);
+        load_elf_blob(elf_buffer, readsize);
+	fastboot_okay("");
+fail:
+	return;
+}
+
+void cmd_rpm_start(void) {
+	rpm_start();
+	fastboot_okay("");
+	return;
+}
+
 void fastboot_rpm_register_commands(void) {
 //        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
         fastboot_register("oem boot-edl",cmd_boot_edl);
@@ -397,4 +490,7 @@ void fastboot_rpm_register_commands(void) {
 	fastboot_register("oem load-sbl1",cmd_load_sbl1);
         fastboot_register("oem boot-pbl",cmd_boot_pbl);
         fastboot_register("oem boot-pbl-patched",cmd_boot_pbl_patched);
+        fastboot_register("oem is-rpm-loaded",test_read_rpmdata);
+        fastboot_register("oem rpm-load-fw",rpm_load_fw);
+        fastboot_register("oem rpm-start",cmd_rpm_start);
 }

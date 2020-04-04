@@ -214,7 +214,7 @@ status_t elf_load(elf_handle_t *handle) {
         // we only care about PT_LOAD segments at the moment
         if (pheader->p_type == PT_LOAD) {
             // if the memory allocation hook exists, call it
-            void *ptr = (void *)(uintptr_t)pheader->p_vaddr;
+            void *ptr = (void *)(uintptr_t)pheader->p_paddr;
 
             if (handle->mem_alloc_hook) {
                 status_t err = handle->mem_alloc_hook(handle, &ptr, pheader->p_memsz, load_count, 0);
