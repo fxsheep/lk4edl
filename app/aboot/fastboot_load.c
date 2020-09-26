@@ -103,7 +103,9 @@ void pageremap(void) {
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x3000, PBL_COPY_ADDR + 0x3000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x4000, PBL_COPY_ADDR + 0x4000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x5000, PBL_COPY_ADDR + 0x5000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xB000, PBL_COPY_ADDR + 0xB000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xD000, PBL_COPY_ADDR + 0xD000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xF000, PBL_COPY_ADDR + 0xF000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x10000, PBL_COPY_ADDR + 0x10000);
     arm_invalidate_tlb();
     arm_write_cr1(arm_read_cr1() | 0x1);
@@ -238,7 +240,26 @@ void cmd_boot_pbl_patched(void) {
 	//pbl_auth patch (to avoid a side effect)
 	patch_pbl(0x103478, 0xEA000004);
 	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
-	patch_pbl(0x10D314, 0xDEADBA2C);
+//	patch_pbl(0x10D314, 0xDEADBA2C);
+
+	//test
+//	patch_pbl(0x10B908, 0xEAFFFFFE);
+//        patch_pbl(0x10CDC4, 0xEAFFFFFE);
+
+#if 0
+	//test hash_verify
+        patch_pbl(0x10F450, 0xE51F0000);
+        patch_pbl(0x10F454, 0xE580E000);
+        patch_pbl(0x10F458, 0xB0500000);
+        patch_pbl(0x10F45C, 0xEAFFFFFE);
+#endif
+
+//pbl_elf_loader works.	
+//        patch_pbl(0x105488, 0xEAFFFFFE);
+
+//bootable_media_detect works.	
+//	patch_pbl(0x10306C, 0xEAFFFFFE);
+
 	fastboot_info("Booting now");
 	fastboot_okay("");
 	target_uninit();
