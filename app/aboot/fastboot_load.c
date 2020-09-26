@@ -239,9 +239,15 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x1107B8, 0xE3A05000);
 	//pbl_auth patch (to avoid a side effect)
 	patch_pbl(0x103478, 0xEA000004);
-	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
-//	patch_pbl(0x10D314, 0xDEADBA2C);
 
+
+	//
+	//patch sbl1 GUID to DEADBEEF-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
+	patch_pbl(0x10D314, 0xDEADBEEF);
+	//
+	//
+
+#if 0
 	//test
 //	patch_pbl(0x10B908, 0xEAFFFFFE);
 //        patch_pbl(0x10CDC4, 0xEAFFFFFE);
@@ -259,6 +265,38 @@ void cmd_boot_pbl_patched(void) {
 
 //bootable_media_detect works.	
 //	patch_pbl(0x10306C, 0xEAFFFFFE);
+
+
+//auth_hash_seg works. 
+//        patch_pbl(0x1034E8, 0xEAFFFFFE);
+
+//prepare_sbl_entrance works.
+//	patch_pbl(0x105AF0, 0xEAFFFFFE);
+
+////jump_to_sbl DOESNT WORK
+////	patch_pbl(0x104130, 0xEAFFFFFE);
+
+#endif
+
+	//It turned out that 
+	//Remapping of 0x103000, 0x10D000 and 0x105000 works while 0x104000 not
+	//Fuck I dont wanna mess with bootrom anymore 
+	
+	//The following is a really working SBL1 in-place patch
+	
+	//We targets the prepare_sbl_entrance located at 0x00105AF0
+	//First modify the return which is an ldmfd, jump to 0x10DA00 instead,
+	//where we place our patching code
+	//In arm mode
+	patch_pbl(0x105C1C, 0xEA001F77); //	B    sub_10DA00	
+
+
+	patch_pbl(0x10DA00, 0xE59F1008);
+        patch_pbl(0x10DA04, 0xE59F2008);
+        patch_pbl(0x10DA08, 0xE5812000);
+        patch_pbl(0x10DA0C, 0xE8BD81F0);
+        patch_pbl(0x10DA10, 0x0801F50E); //patch SBL1 boot_is_auth_enabled
+	patch_pbl(0x10DA14, 0x2001E002); // always return 0
 
 	fastboot_info("Booting now");
 	fastboot_okay("");
