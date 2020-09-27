@@ -291,12 +291,23 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x105C1C, 0xEA001F77); //	B    sub_10DA00	
 
 
-	patch_pbl(0x10DA00, 0xE59F1008);
-        patch_pbl(0x10DA04, 0xE59F2008);
+	patch_pbl(0x10DA00, 0xE59F1014);
+        patch_pbl(0x10DA04, 0xE59F2014);
         patch_pbl(0x10DA08, 0xE5812000);
-        patch_pbl(0x10DA0C, 0xE8BD81F0);
-        patch_pbl(0x10DA10, 0x0801F50E); //patch SBL1 boot_is_auth_enabled
-	patch_pbl(0x10DA14, 0x2001E002); // always return 0
+        patch_pbl(0x10DA0C, 0xE59F1010);
+        patch_pbl(0x10DA10, 0xE59F2010); 
+	patch_pbl(0x10DA14, 0xE5812000); 
+        patch_pbl(0x10DA18, 0xE8BD81F0);
+
+//	patch_pbl(0x10DA1C, 0x0801F50E);
+//        patch_pbl(0x10DA20, 0x2001E002);
+	patch_pbl(0x10DA1C, 0x0801E0CA);
+	patch_pbl(0x10DA20, 0x20002000);
+	
+	patch_pbl(0x10DA24, 0x0805BBE5);
+        patch_pbl(0x10DA28, 0xDEADBEEF);
+//        patch_pbl(0x10DA24, 0x0801F50E);
+//        patch_pbl(0x10DA28, 0x2001E002);
 
 	fastboot_info("Booting now");
 	fastboot_okay("");
