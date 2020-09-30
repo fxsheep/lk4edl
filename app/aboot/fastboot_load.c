@@ -103,8 +103,10 @@ void pageremap(void) {
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x3000, PBL_COPY_ADDR + 0x3000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x4000, PBL_COPY_ADDR + 0x4000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x5000, PBL_COPY_ADDR + 0x5000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xB000, PBL_COPY_ADDR + 0xB000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xD000, PBL_COPY_ADDR + 0xD000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x10000, PBL_COPY_ADDR + 0x10000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x13000, PBL_COPY_ADDR + 0x13000);
     arm_invalidate_tlb();
     arm_write_cr1(arm_read_cr1() | 0x1);
     return;
@@ -232,16 +234,38 @@ void cmd_boot_pbl_patched(void) {
 	fastboot_info("Patching PBL");
 
 	//DACR:Set ourselves as manager
-//	patch_pbl(0x110008, 0xE3E00000); //IDK WHY THIS DOESN'T WOR, kek
+	patch_pbl(0x110008, 0xE3E00000); //IDK WHY THIS DOESN'T WOR, kek
 	//Disable MMU reset
-	patch_pbl(0x110014, 0xE1A00000);
+	patch_pbl(0x110014, 0xE320F000);
 	//Disable page table init
 	patch_pbl_nop(0x110678, 0x1107B8);
 	patch_pbl(0x1107B8, 0xE3A05000);
 	//pbl_auth patch (to avoid a side effect)
 	patch_pbl(0x103478, 0xEA000004);
 	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
-	patch_pbl(0x10D314, 0xDEADBA2C);
+	patch_pbl(0x10D314, 0xDEADBA2D);
+
+//Trick the PBL into thinking that secureboot fuses aren't blown
+        patch_pbl(0x10B7C0, 0xE59010F0);
+        patch_pbl(0x10B878, 0xE59000F0);
+        patch_pbl(0x10B924, 0xE59220F0);
+	patch_pbl(0x10B69C, 0xE59110F0);
+
+//rename QHSUSB__BULK to QHSUSB__PWND
+	patch_pbl(0x11360A, 0x00570050);
+        patch_pbl(0x11360E, 0x0044004E);
+
+
+
+#if 0
+	int i = 0x0010DC5C;
+        patch_pbl(i, 0xE3A01000);
+        patch_pbl(i + 0x4, 0xE51F2000);
+        patch_pbl(i + 0x8, 0xE5821000);
+        patch_pbl(i + 0xC, 0x4AB000);
+
+#endif
+
 	fastboot_info("Booting now");
 	fastboot_okay("");
 	        memcpy(0xB0005000, PBL_BASE_ADDR, PBL_SIZE);
@@ -250,8 +274,6 @@ void cmd_boot_pbl_patched(void) {
         __asm("LDR PC, =0x100000;");
 
 }
-
-
 
 void cmd_load_sbl1(void) {
         char buf[1024];
