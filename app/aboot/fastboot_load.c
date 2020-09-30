@@ -246,10 +246,10 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x10D314, 0xDEADBA2D);
 
 //Trick the PBL into thinking that secureboot fuses aren't blown
-        patch_pbl(0x10B7C0, 0xE59010F0);
-        patch_pbl(0x10B878, 0xE59000F0);
-        patch_pbl(0x10B924, 0xE59220F0);
-	patch_pbl(0x10B69C, 0xE59110F0);
+//      patch_pbl(0x10B7C0, 0xE59010F0);
+//      patch_pbl(0x10B878, 0xE59000F0);
+        patch_pbl(0x10B924, 0xE59220F0);//Only this one is necessary
+//	patch_pbl(0x10B69C, 0xE59110F0);
 
 //rename QHSUSB__BULK to QHSUSB__PWND
 	patch_pbl(0x11360A, 0x00570050);
