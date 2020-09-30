@@ -234,24 +234,16 @@ void cmd_boot_pbl_patched(void) {
 	fastboot_info("Patching PBL");
 
 	//DACR:Set ourselves as manager
-//	patch_pbl(0x110008, 0xE3E00000); //IDK WHY THIS DOESN'T WOR, kek
+	patch_pbl(0x110008, 0xE3E00000); //IDK WHY THIS DOESN'T WOR, kek
 	//Disable MMU reset
 	patch_pbl(0x110014, 0xE320F000);
 	//Disable page table init
-
-//	patch_pbl_nop(0x110678, 0x1107B8); //dont do so, instead we simply 
-//	disable init of BootROM mappings
-	patch_pbl(0x110678, 0xE3A00001);
-	patch_pbl(0x110690, 0xE3A00001);
-	patch_pbl(0x110704, 0xE1A00000);
-//	patch_pbl(0x1107B8, 0xE3A05000);  //let PBL flush pt and enable mmu as usual
-
+	patch_pbl_nop(0x110678, 0x1107B8);
+	patch_pbl(0x1107B8, 0xE3A05000);
 	//pbl_auth patch (to avoid a side effect)
 	patch_pbl(0x103478, 0xEA000004);
 	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
 	patch_pbl(0x10D314, 0xDEADBA2D);
-
-
 
 //Trick the PBL into thinking that secureboot fuses aren't blown
         patch_pbl(0x10B7C0, 0xE59010F0);
