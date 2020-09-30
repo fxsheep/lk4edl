@@ -103,6 +103,7 @@ void pageremap(void) {
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x3000, PBL_COPY_ADDR + 0x3000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x4000, PBL_COPY_ADDR + 0x4000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x5000, PBL_COPY_ADDR + 0x5000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xA000, PBL_COPY_ADDR + 0xA000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xB000, PBL_COPY_ADDR + 0xB000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xD000, PBL_COPY_ADDR + 0xD000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xF000, PBL_COPY_ADDR + 0xF000);
@@ -247,6 +248,8 @@ void cmd_boot_pbl_patched(void) {
 	//
 	//
 
+patch_pbl(0x10A004, 0xEAFFFFFE);
+
 #if 0
 	//test
 //	patch_pbl(0x10B908, 0xEAFFFFFE);
@@ -278,6 +281,7 @@ void cmd_boot_pbl_patched(void) {
 
 #endif
 
+#if 0
 	//It turned out that 
 	//Remapping of 0x103000, 0x10D000 and 0x105000 works while 0x104000 not
 	//Fuck I dont wanna mess with bootrom anymore 
@@ -308,6 +312,27 @@ void cmd_boot_pbl_patched(void) {
         patch_pbl(0x10DA28, 0xDEADBEEF);
 //        patch_pbl(0x10DA24, 0x0801F50E);
 //        patch_pbl(0x10DA28, 0x2001E002);
+
+#endif
+
+//Here's a more crazy idea:since we cant patch the lots_of_verifies, why not relocate it to somewhere patchable?
+
+	//copy maybe_lots_of_verifies to 0x10D700
+	memcpy(PBL_COPY_ADDR + 0xD700, PBL_COPY_ADDR + 0xA5C0, 0x374);
+	//then fixup all the BLs...
+        patch_pbl(0x10D760, 0xEB0007BE);
+        patch_pbl(0x10D778, 0xEB0007B8);
+        patch_pbl(0x10D788, 0xEB0007B4);
+
+        patch_pbl(0x10D910, 0xEBFFFE0B);
+        patch_pbl(0x10D928, 0xEBFFFE30);
+        patch_pbl(0x10D940, 0xEB00004B);
+
+        patch_pbl(0x10DA1C, 0xEB00135F);
+        patch_pbl(0x10DA2C, 0xEB00135B);
+
+	//let pbl_auth call our maybe_lots_of_verifies instead
+        patch_pbl(0x103470, 0xEB0028A2);
 
 	fastboot_info("Booting now");
 	fastboot_okay("");
