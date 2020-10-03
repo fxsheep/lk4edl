@@ -304,7 +304,7 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x10DA1C, 0x0801E0CA);
 	patch_pbl(0x10DA20, 0x20002000);
 	
-	patch_pbl(0x10DA24, 0x0805BBE5);
+	patch_pbl(0x10DA24, 0x0805BBF5); //TZ GUID
         patch_pbl(0x10DA28, 0xDEADBEEF);
 //        patch_pbl(0x10DA24, 0x0801F50E);
 //        patch_pbl(0x10DA28, 0x2001E002);
