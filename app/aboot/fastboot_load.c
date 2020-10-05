@@ -291,23 +291,14 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x105C1C, 0xEA001F77); //	B    sub_10DA00	
 
 
-	patch_pbl(0x10DA00, 0xE59F1014);
-        patch_pbl(0x10DA04, 0xE59F2014);
+	patch_pbl(0x10DA00, 0xE59F1008);
+        patch_pbl(0x10DA04, 0xE59F2008);
         patch_pbl(0x10DA08, 0xE5812000);
-        patch_pbl(0x10DA0C, 0xE59F1010);
-        patch_pbl(0x10DA10, 0xE59F2010); 
-	patch_pbl(0x10DA14, 0xE5812000); 
-        patch_pbl(0x10DA18, 0xE8BD81F0);
+        patch_pbl(0x10DA0C, 0xE8BD81F0);
+	patch_pbl(0x10DA10, 0x0801E0CA);
+	patch_pbl(0x10DA14, 0x20002000); //Disable SBL1 sigcheck of the rest chain
 
-//	patch_pbl(0x10DA1C, 0x0801F50E);
-//        patch_pbl(0x10DA20, 0x2001E002);
-	patch_pbl(0x10DA1C, 0x0801E0CA);
-	patch_pbl(0x10DA20, 0x20002000);
-	
-	patch_pbl(0x10DA24, 0x0805BBF5); //TZ GUID
-        patch_pbl(0x10DA28, 0xDEADBEEF);
-//        patch_pbl(0x10DA24, 0x0801F50E);
-//        patch_pbl(0x10DA28, 0x2001E002);
+	patch_pbl(0x1052B8, 0xE3A05001); //force boot from SDC2 first
 
 	fastboot_info("Booting now");
 	fastboot_okay("");
