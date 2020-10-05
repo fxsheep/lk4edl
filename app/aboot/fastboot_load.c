@@ -243,7 +243,7 @@ void cmd_boot_pbl_patched(void) {
 
 	//
 	//patch sbl1 GUID to DEADBEEF-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
-	patch_pbl(0x10D314, 0xDEADBEEF);
+//	patch_pbl(0x10D314, 0xDEADBEEF);
 	//
 	//
 
