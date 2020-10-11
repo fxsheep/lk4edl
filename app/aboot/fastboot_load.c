@@ -104,6 +104,7 @@ void pageremap(void) {
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x4000, PBL_COPY_ADDR + 0x4000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x5000, PBL_COPY_ADDR + 0x5000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xB000, PBL_COPY_ADDR + 0xB000);
+    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xC000, PBL_COPY_ADDR + 0xC000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xD000, PBL_COPY_ADDR + 0xD000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x10000, PBL_COPY_ADDR + 0x10000);
     pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x13000, PBL_COPY_ADDR + 0x13000);
@@ -226,7 +227,7 @@ void cmd_boot_pbl(void) {
 }
 
 void cmd_boot_pbl_patched(void) {
-	mmu_dacr_off();
+	mmu_dacr_off(); 
 	fastboot_info("Start copying PBL...");
 	memcpy(PBL_COPY_ADDR, PBL_BASE_ADDR, PBL_SIZE);
         fastboot_info("Remapping PBL");
@@ -234,16 +235,16 @@ void cmd_boot_pbl_patched(void) {
 	fastboot_info("Patching PBL");
 
 	//DACR:Set ourselves as manager
-	patch_pbl(0x110008, 0xE3E00000); //IDK WHY THIS DOESN'T WOR, kek
+	patch_pbl(0x110008, 0xE3E00000);
 	//Disable MMU reset
 	patch_pbl(0x110014, 0xE320F000);
-	//Disable page table init
-	patch_pbl_nop(0x110678, 0x1107B8);
-	patch_pbl(0x1107B8, 0xE3A05000);
+//	//Disable page table init
+//	patch_pbl_nop(0x110670, 0x1107B8);
+//	patch_pbl(0x1107B8, 0xE3A05000);
 	//pbl_auth patch (to avoid a side effect)
 	patch_pbl(0x103478, 0xEA000004);
 	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
-	patch_pbl(0x10D314, 0xDEADBEEF);
+	patch_pbl(0x10D314, 0xDEADBEEA);
 
 //Trick the PBL into thinking that secureboot fuses aren't blown
 //      patch_pbl(0x10B7C0, 0xE59010F0);
@@ -254,6 +255,71 @@ void cmd_boot_pbl_patched(void) {
 //rename QHSUSB__BULK to QHSUSB__PWND
 	patch_pbl(0x11360A, 0x00570050);
         patch_pbl(0x11360E, 0x0044004E);
+
+//        patch_pbl(0x200218, 0x08600C16);
+
+//        patch_pbl_nop(0x104170, 0x104198); //Disable initialize_secondary_pt_for_sbl
+
+
+
+	//DACR is important here!
+	patch_pbl(0x11066C, 0xE8BD81F0); //dont init pt for real, just setup pbl struct for itself
+        
+	patch_pbl(0x105BA8, 0xE59F0008); //revert pt init skip changes above
+        patch_pbl(0x105BAC, 0xE59F1008); //in prepare_sbl_entrance (late enough)
+        patch_pbl(0x105BB0, 0xE5801000);
+        patch_pbl(0x105BB4, 0xEA000001); 
+        patch_pbl(0x105BB8, 0x0011066C);
+        patch_pbl(0x105BBC, 0x1A000055); 
+
+        patch_pbl(0x105AF8, 0xE59F1008); //patch prepare_sbl_entrance pointer itself to pbl_initialize_pagetables
+        patch_pbl(0x105AFC, 0xE59F2008);
+        patch_pbl(0x105B00, 0xE5821000);
+        patch_pbl(0x105B04, 0xEA000001);
+        patch_pbl(0x105B08, 0x00103694);
+        patch_pbl(0x105B0C, 0x0010CE4C);
+
+					 //next we nop ADD at 0x001059A8 from prepare_sbl_entrance, which lets main routine \
+					 //to jump to (prepare_sbl_entrance) pbl_initialize_pagetables pointer again
+        patch_pbl(0x105C00, 0xE59F1008); 
+        patch_pbl(0x105C04, 0xE59F2008);
+        patch_pbl(0x105C08, 0xE5821000);
+        patch_pbl(0x105C0C, 0xE1A00001);
+        patch_pbl(0x105C10, 0xE1A00000);
+        patch_pbl(0x105C14, 0x001059A8);
+
+
+
+#if 0
+	patch_pbl(0x10DA00, 0xE3A00000); //Create a function placeholder at 0x10DA00
+        patch_pbl(0x10DA04, 0xE1A0F00E); //return 0;
+
+#endif
+
+#if 0
+	//test reboot func
+
+        patch_pbl(0x10DA00, 0xE3A00000); 
+        patch_pbl(0x10DA04, 0xE51F1000); 
+        patch_pbl(0x10DA08, 0xE5810000); 
+        patch_pbl(0x10DA0C, 0x4AB000); 
+
+#endif
+
+#if 0
+        patch_pbl(0x10CE54, 0x0010DA00); //Then modify PBL main routine
+        patch_pbl(0x10CE5C, 0x0010DA00); //Bypass them all IMPOSSIBLE
+        patch_pbl(0x10CE64, 0x0010DA00);
+        patch_pbl(0x10CE6C, 0x0010DA00);
+        patch_pbl(0x10CE74, 0x0010DA00);
+        patch_pbl(0x10CE7C, 0x0010DA00);
+        patch_pbl(0x10CE84, 0x0010DA00);
+
+	patch_pbl(0x10CE8C, 0x00103694); //There we init PT for real
+					 //...and then we jump to jump_to_sbl even when all remappings has been lost	
+#endif
+
+///        patch_pbl(0x001105A4, 0xE8BD81F0);
 
 
 
