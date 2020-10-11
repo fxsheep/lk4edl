@@ -281,14 +281,26 @@ void cmd_boot_pbl_patched(void) {
 
 					 //next we nop ADD at 0x001059A8 from prepare_sbl_entrance, which lets main routine \
 					 //to jump to (prepare_sbl_entrance) pbl_initialize_pagetables pointer again
-        patch_pbl(0x105C00, 0xE59F1008); 
+
+#if 0
+	patch_pbl(0x105C00, 0xE59F1008); 
         patch_pbl(0x105C04, 0xE59F2008);
         patch_pbl(0x105C08, 0xE5821000);
         patch_pbl(0x105C0C, 0xEA000001);
-        patch_pbl(0x105C10, 0xE1A00000);
-        patch_pbl(0x105C14, 0x001059A8);
+        patch_pbl(0x105C10, 0xEAFFFFFE); //This patch didn't take effect, why?
+        patch_pbl(0x105C14, 0x001059A8); //Cuz that routine has an if condition and it's not reached
+#endif
 
+	//So have to fix it this way
+	patch_pbl(0x105C1C, 0xEA001F77);
 
+        patch_pbl(0x10DA00, 0xE59F1008); 
+        patch_pbl(0x10DA04, 0xE59F2008);
+        patch_pbl(0x10DA08, 0xE5821000);
+        patch_pbl(0x10DA0C, 0xEA000001);
+        patch_pbl(0x10DA10, 0xE1A00000); 
+        patch_pbl(0x10DA14, 0x001059A8);
+	patch_pbl(0x10DA18, 0xE8BD81F0);
 
 #if 0
 	patch_pbl(0x10DA00, 0xE3A00000); //Create a function placeholder at 0x10DA00
