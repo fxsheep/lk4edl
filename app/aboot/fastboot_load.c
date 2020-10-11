@@ -284,7 +284,7 @@ void cmd_boot_pbl_patched(void) {
         patch_pbl(0x105C00, 0xE59F1008); 
         patch_pbl(0x105C04, 0xE59F2008);
         patch_pbl(0x105C08, 0xE5821000);
-        patch_pbl(0x105C0C, 0xE1A00001);
+        patch_pbl(0x105C0C, 0xEA000001);
         patch_pbl(0x105C10, 0xE1A00000);
         patch_pbl(0x105C14, 0x001059A8);
 
