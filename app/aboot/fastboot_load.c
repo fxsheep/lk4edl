@@ -299,8 +299,9 @@ void cmd_boot_pbl_patched(void) {
         patch_pbl(0x10DA08, 0xE5821000);
         patch_pbl(0x10DA0C, 0xEA000001);
         patch_pbl(0x10DA10, 0xE1A00000); 
-        patch_pbl(0x10DA14, 0x001059A8); //STILL not working, not re-initing pt
-	patch_pbl(0x10DA18, 0xE8BD81F0); //Reached here, patching itself is working
+        patch_pbl(0x10DA14, 0x001059A8); 
+	patch_pbl(0x10DA18, 0xEE070F15); //Need to flush ICACHE to ensure self-patch
+	patch_pbl(0x10DA1C, 0xE8BD81F0); 
 
 #if 0
 	patch_pbl(0x10DA00, 0xE3A00000); //Create a function placeholder at 0x10DA00
