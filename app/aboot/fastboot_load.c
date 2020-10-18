@@ -243,8 +243,11 @@ void cmd_boot_pbl_patched(void) {
 //	patch_pbl(0x1107B8, 0xE3A05000);
 	//pbl_auth patch (to avoid a side effect)
 	patch_pbl(0x103478, 0xEA000004);
+
 	//patch sbl1 GUID to DEADBA2C-CBDD-4805-B4F9-F428251C3E98 , original is DEA0BA2C-CBDD-4805-B4F9-F428251C3E98
-	patch_pbl(0x10D314, 0xDEADBEEA);
+//	patch_pbl(0x10D314, 0xDEADBEEA);
+
+	patch_pbl(0x1052B8, 0xE3A05001); //Boot from SDCard (first)
 
 //Trick the PBL into thinking that secureboot fuses aren't blown
 //      patch_pbl(0x10B7C0, 0xE59010F0);
