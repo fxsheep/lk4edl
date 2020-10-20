@@ -437,7 +437,7 @@ void rpm_load_fw(void) {
         }
 
         fastboot_info("Reading rpm from mmc...");
-        index = partition_get_index("rpm");
+        index = partition_get_index("rpmbak");
         if (index == 0) {
                 dprintf(CRITICAL, "ERROR: Partition not found\n");
                 goto fail;
