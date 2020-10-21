@@ -483,6 +483,12 @@ void cmd_rpm_start(void) {
 	return;
 }
 
+void cmd_rpm_memcpy(void) {
+	memcpy(0x85500000, 0x290000, 0xE000);
+	fastboot_okay("");
+        return;
+}
+
 void fastboot_rpm_register_commands(void) {
 //        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
         fastboot_register("oem boot-edl",cmd_boot_edl);
@@ -493,4 +499,5 @@ void fastboot_rpm_register_commands(void) {
         fastboot_register("oem is-rpm-loaded",test_read_rpmdata);
         fastboot_register("oem rpm-load-fw",rpm_load_fw);
         fastboot_register("oem rpm-start",cmd_rpm_start);
+        fastboot_register("oem rpm-memdmp",cmd_rpm_memcpy);
 }
