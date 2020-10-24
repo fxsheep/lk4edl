@@ -42,8 +42,18 @@ void rpm_start(void) {
 	return;
 }
 
+void rpm_stop(void) {
+        *(uint32 *)(RPM_PROC_CLOCK) = *(uint32 *)(RPM_PROC_CLOCK) | 0x1;
+        return;
+}
+
 int is_rpm_started(void) {
 	return *(uint32 *)(RPM_READY_FLAG) & 2; 
+}
+
+void cmd_reboot_pshold(void) {
+        *(uint32 *)(0x4AB000) = 0;
+        return;
 }
 
 void mmu_dacr_off(void) {
@@ -394,6 +404,8 @@ void test_read_rpmdata(void) {
         char buf[1024];
         snprintf(buf, sizeof(buf), "\tis rpm started %d\n", is_rpm_started());
 	fastboot_info(buf);
+        snprintf(buf, sizeof(buf), "\trpm tcsr value %d\n",*(uint32 *)(RPM_READY_FLAG));
+        fastboot_info(buf);
         snprintf(buf, sizeof(buf), "\trpm proc clock %x\n",*(uint32 *)(RPM_PROC_CLOCK));
         fastboot_info(buf);
         fastboot_okay("");
@@ -483,6 +495,12 @@ void cmd_rpm_start(void) {
 	return;
 }
 
+void cmd_rpm_stop(void) {
+        rpm_stop();
+        fastboot_okay("");
+        return;
+}
+
 void cmd_rpm_memcpy(void) {
 	memcpy(0x85500000, 0x290000, 0xE000);
 	fastboot_okay("");
@@ -499,5 +517,7 @@ void fastboot_rpm_register_commands(void) {
         fastboot_register("oem is-rpm-loaded",test_read_rpmdata);
         fastboot_register("oem rpm-load-fw",rpm_load_fw);
         fastboot_register("oem rpm-start",cmd_rpm_start);
-        fastboot_register("oem rpm-memdmp",cmd_rpm_memcpy);
+        fastboot_register("oem rpm-stop",cmd_rpm_stop);
+	fastboot_register("oem rpm-memdmp",cmd_rpm_memcpy);
+	fastboot_register("oem ps-hold",cmd_reboot_pshold);
 }
