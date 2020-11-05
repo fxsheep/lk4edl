@@ -98,17 +98,12 @@ void pt_second_level_xsmallpage_remap(uint32_t *va, uint32_t *new_va)
 
 
 void pageremap(void) {
+    uint32_t i;
     arm_write_cr1(arm_read_cr1() | 0x0);
     dprintf(INFO, "Remapping pages\n");
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR, PBL_COPY_ADDR);   
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x3000, PBL_COPY_ADDR + 0x3000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x4000, PBL_COPY_ADDR + 0x4000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x5000, PBL_COPY_ADDR + 0x5000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xB000, PBL_COPY_ADDR + 0xB000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xC000, PBL_COPY_ADDR + 0xC000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0xD000, PBL_COPY_ADDR + 0xD000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x10000, PBL_COPY_ADDR + 0x10000);
-    pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + 0x13000, PBL_COPY_ADDR + 0x13000);
+    for(i = 0; i < PBL_SIZE / 0x1000; i++) {
+    	pt_second_level_xsmallpage_remap(PBL_BASE_ADDR + (i * 0x1000), PBL_COPY_ADDR + (i * 0x1000));
+    }
     arm_invalidate_tlb();
     arm_write_cr1(arm_read_cr1() | 0x1);
     return;
