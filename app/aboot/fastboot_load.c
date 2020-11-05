@@ -14,6 +14,7 @@
 #define PBL_BASE_ADDR (0x100000)
 #define PBL_COPY_ADDR (0x08080000) //0x8068000 DOESN'T WORK
 
+#define TCSR_BOOT_MISC_DETECT (0x0193D100)
 
 #define PT_GET_TYPE(x) (x & 3)
 
@@ -466,6 +467,18 @@ fail:
 }
 #endif
 
+void cmd_tcsr_enable_edl(void) {
+	*(uint32 *)(TCSR_BOOT_MISC_DETECT) = *(uint32 *)(TCSR_BOOT_MISC_DETECT) | 0x1;
+	fastboot_okay("");
+	return;
+}
+
+void cmd_tcsr_disable_edl(void) {
+	*(uint32 *)(TCSR_BOOT_MISC_DETECT) = *(uint32 *)(TCSR_BOOT_MISC_DETECT) & 0xFFF0;
+	fastboot_okay("");
+        return;
+}
+
 void fastboot_rpm_register_commands(void) {
 //        fastboot_register("oem rpm-read-fw", cmd_rpm_read_fw);
         fastboot_register("oem boot-edl",cmd_boot_edl);
@@ -473,4 +486,6 @@ void fastboot_rpm_register_commands(void) {
 	fastboot_register("oem load-sbl1",cmd_load_sbl1);
         fastboot_register("oem boot-pbl",cmd_boot_pbl);
         fastboot_register("oem boot-pbl-patched",cmd_boot_pbl_patched);
+	fastboot_register("oem enable-edl",cmd_tcsr_enable_edl);
+	fastboot_register("oem disable-edl",cmd_tcsr_disable_edl);
 }
