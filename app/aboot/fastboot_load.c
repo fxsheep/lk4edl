@@ -462,6 +462,24 @@ fail:
 }
 #endif
 
+void cmd_reboot_reason_normal(void) {
+	writel(0x00, RESTART_REASON_ADDR);
+	fastboot_okay("");
+	return;
+}
+
+void cmd_reboot_reason_fastboot(void) {
+	writel(FASTBOOT_MODE, RESTART_REASON_ADDR);
+	fastboot_okay("");
+	return;
+}
+
+void cmd_reboot_reason_recovery(void) {
+	writel(RECOVERY_MODE, RESTART_REASON_ADDR);
+	fastboot_okay("");
+	return;
+}
+
 void cmd_tcsr_enable_edl(void) {
 	*(uint32 *)(TCSR_BOOT_MISC_DETECT) = *(uint32 *)(TCSR_BOOT_MISC_DETECT) | 0x1;
 	fastboot_okay("");
@@ -483,4 +501,7 @@ void fastboot_rpm_register_commands(void) {
         fastboot_register("oem boot-pbl-patched",cmd_boot_pbl_patched);
 	fastboot_register("oem enable-edl",cmd_tcsr_enable_edl);
 	fastboot_register("oem disable-edl",cmd_tcsr_disable_edl);
+	fastboot_register("oem lk-reboot-recovery",cmd_reboot_reason_recovery);
+	fastboot_register("oem lk-reboot-bootloader",cmd_reboot_reason_fastboot);
+	fastboot_register("oem lk-reboot-normal",cmd_reboot_reason_normal);
 }
