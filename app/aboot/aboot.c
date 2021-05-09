@@ -39,6 +39,7 @@
 #include <kernel/thread.h>
 #include <arch/ops.h>
 
+#include <lib/elf.h>
 #include <dev/flash.h>
 #include <dev/flash-ubi.h>
 #include <lib/ptable.h>
@@ -2811,6 +2812,7 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 	char *sp;
 	uint8_t lun = 0;
 	bool lun_set = false;
+	elf_handle_t elf;
 
 	token = strtok_r((char *)arg, ":", &sp);
 	pname = token;
@@ -2824,6 +2826,33 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 
 	if (pname)
 	{
+
+                if (!strcmp(pname, "loadelf"))
+                {
+                        dprintf(INFO, "Attempt to load an ELF image.\n");
+			status_t st = elf_open_handle_memory(&elf, data, sz);
+			if (st < 0) {
+				dprintf(CRITICAL, "unable to open elf handle\n");
+				goto elf_open_fail;
+			}
+			st = elf_load(&elf);
+			if (st < 0) {
+				dprintf(CRITICAL, "elf processing failed, status : %d\n", st);
+			}
+			else {
+				dprintf(INFO, "elf looks good\n");
+			}
+			elf_close_handle(&elf);
+elf_open_fail:
+			if (st < 0) {
+				fastboot_fail("Failed to load ELF");
+			}
+			else {
+				fastboot_info("ELF load success");
+				fastboot_okay("");
+			}
+
+		}
 		if (!strncmp(pname, "frp-unlock", strlen("frp-unlock")))
 		{
 			if (!aboot_frp_unlock(pname, data, sz))
