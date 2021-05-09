@@ -34,6 +34,52 @@
 #define PT_FL_OFFSET(x) ((uint32_t)x >> 20)
 #define PT_SL_OFFSET(x) (((uint32_t)x & 0xFF000)>>12)
 
+/* todo: give lk strtoul and nuke this */
+static unsigned hex2unsigned(const char *x)
+{
+    unsigned n = 0;
+
+    while(*x) {
+        switch(*x) {
+        case '0': case '1': case '2': case '3': case '4':
+        case '5': case '6': case '7': case '8': case '9':
+            n = (n << 4) | (*x - '0');
+            break;
+        case 'a': case 'b': case 'c':
+        case 'd': case 'e': case 'f':
+            n = (n << 4) | (*x - 'a' + 10);
+            break;
+        case 'A': case 'B': case 'C':
+        case 'D': case 'E': case 'F':
+            n = (n << 4) | (*x - 'A' + 10);
+            break;
+        default:
+            return n;
+        }
+        x++;
+    }
+
+    return n;
+}
+
+static void cmd_readl(const char *arg, void *data, unsigned sz)
+{
+	char buf[1024];
+	uint32_t addr = hex2unsigned(arg);
+        snprintf(buf, sizeof(buf), "\t0x%x value is 0x%x\n", addr, readl(addr));
+        fastboot_info(buf);
+	fastboot_okay("");
+}
+
+static void cmd_writel(const char *arg, void *data, unsigned sz)
+{
+        uint32_t addr = hex2unsigned(arg);
+	arg += 9;
+	uint32_t val = hex2unsigned(arg);
+	writel(val,addr);	
+        fastboot_okay("");
+}
+
 void cmd_reboot_pshold(void) {
 	        *(uint32 *)(0x4AB000) = 0;
 		        return;
@@ -391,4 +437,6 @@ void fastboot_rpm_register_commands(void) {
         fastboot_register("oem boot-pbl",cmd_boot_pbl);
         fastboot_register("oem boot-pbl-patched",cmd_boot_pbl_patched);
 	fastboot_register("oem ps-hold",cmd_reboot_pshold);
+        fastboot_register("oem readl",cmd_readl);
+        fastboot_register("oem writel",cmd_writel);
 }
