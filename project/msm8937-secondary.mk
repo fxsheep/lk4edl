@@ -2,8 +2,6 @@
 #
 LOCAL_DIR := $(GET_LOCAL_DIR)
 
-# Enable fastboot display menu
-ENABLE_FBCON_DISPLAY_MSG := 1
 
 include $(LOCAL_DIR)/msm8952.mk
 
