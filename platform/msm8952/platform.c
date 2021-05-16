@@ -99,6 +99,7 @@ static mmu_section_t mmu_section_table[] = {
 
 void platform_early_init(void)
 {
+	writel(readl(0x1860000) & 0xE, 0x1860000); //Start RPM execution
 	board_init();
 	platform_clock_init();
 	qgic_init();
