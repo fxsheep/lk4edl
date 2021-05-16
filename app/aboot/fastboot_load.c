@@ -34,6 +34,10 @@
 #define PT_FL_OFFSET(x) ((uint32_t)x >> 20)
 #define PT_SL_OFFSET(x) (((uint32_t)x & 0xFF000)>>12)
 
+void cmd_reboot_pshold(void) {
+	        *(uint32 *)(0x4AB000) = 0;
+		        return;
+}
 
 void mmu_dacr_off(void) {
         __asm("MOV R0, #0xFFFFFFFF; MCR p15,0,R0,c3,c0,0;");
@@ -386,4 +390,5 @@ void fastboot_rpm_register_commands(void) {
 	fastboot_register("oem load-sbl1",cmd_load_sbl1);
         fastboot_register("oem boot-pbl",cmd_boot_pbl);
         fastboot_register("oem boot-pbl-patched",cmd_boot_pbl_patched);
+	fastboot_register("oem ps-hold",cmd_reboot_pshold);
 }
