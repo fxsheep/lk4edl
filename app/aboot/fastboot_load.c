@@ -257,12 +257,12 @@ void cmd_boot_pbl_patched(void) {
 	patch_pbl(0x11066C, 0xE8BD81F0); //don't init pt, but only fill pbl struct
         
 	//prepare_sbl_entrance:
-	patch_pbl(0x105BA8, 0xE59F0008); //revert changes above, which skips actual pt init
+	patch_pbl(0x105BA8, 0xE59F0008); //patch pbl_initialize_pagetables again but this time in PBL itself
         patch_pbl(0x105BAC, 0xE59F1008); //in prepare_sbl_entrance (late enough)
-        patch_pbl(0x105BB0, 0xE5801000); //so that we can use it to re-init pt afterwards
+        patch_pbl(0x105BB0, 0xE5801000); //so that we can use it to only re-init pt afterwards
         patch_pbl(0x105BB4, 0xEA000001);
-        patch_pbl(0x105BB8, 0x0011066C);
-        patch_pbl(0x105BBC, 0x1A000055);
+        patch_pbl(0x105BB8, 0x001105BC);
+        patch_pbl(0x105BBC, 0xEA00002B);
 
 	//prepare_sbl_entrance:
         patch_pbl(0x105AF8, 0xE59F1008); //inject pbl_initialize_pagetables after prepare_sbl_entrance
