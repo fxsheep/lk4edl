@@ -320,6 +320,7 @@ scm_call(uint32_t svc_id, uint32_t cmd_id, const void *cmd_buf,
 int restore_secure_cfg(uint32_t id)
 {
 	int ret = 0;
+#if 0
 	tz_secure_cfg secure_cfg;
 
 	secure_cfg.id    = id;
@@ -346,7 +347,7 @@ int restore_secure_cfg(uint32_t id)
 		dprintf(CRITICAL, "Secure Config failed\n");
 		ret = 1;
 	}
-
+#endif
 	return ret;
 }
 

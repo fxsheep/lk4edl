@@ -4180,14 +4180,13 @@ void aboot_init(const struct app_descriptor *app)
 #endif
 
 
-//No display XD
-#if 0 
 	/* Display splash screen if enabled */
 #if DISPLAY_SPLASH_SCREEN
 #if NO_ALARM_DISPLAY
 	if (!check_alarm_boot()) {
 #endif
 		dprintf(SPEW, "Display Init: Start\n");
+		strcpy(device.display_panel,"hx8394f_boe_720p_video");
 #if DISPLAY_HDMI_PRIMARY
 	if (!strlen(device.display_panel))
 		strlcpy(device.display_panel, DISPLAY_PANEL_HDMI,
@@ -4213,7 +4212,6 @@ void aboot_init(const struct app_descriptor *app)
 	dprintf(SPEW,"serial number: %s\n",sn_buf);
 
 	memset(display_panel_buf, '\0', MAX_PANEL_BUF_SIZE);
-#endif
 
 	/* Check if we should do something other than booting up */
 	if (keys_get_state(KEY_VOLUMEUP) && keys_get_state(KEY_VOLUMEDOWN))
