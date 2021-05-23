@@ -132,12 +132,13 @@ addr_t get_bs_info_addr()
 int platform_use_identity_mmu_mappings(void)
 {
 	/* Use only the mappings specified in this file. */
-	return 0;
+	return 1;
 }
 
 /* Setup MMU mapping for this platform */
 void platform_init_mmu_mappings(void)
 {
+#if 0
 	uint32_t i;
 	uint32_t sections;
 	uint32_t table_size = ARRAY_SIZE(mmu_section_table);
@@ -170,6 +171,7 @@ void platform_init_mmu_mappings(void)
 								mmu_section_table[i].flags);
 		}
 	}
+#endif
 }
 
 addr_t platform_map_fb(addr_t phys_addr, uint32_t size)
