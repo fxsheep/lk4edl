@@ -62,6 +62,29 @@ static unsigned hex2unsigned(const char *x)
     return n;
 }
 
+static void cmd_rpm_readl(const char *arg, void *data, unsigned sz)
+{
+        char buf[1024];
+        uint32_t addr = hex2unsigned(arg);
+	writel(addr,0x290014);
+	writel(1,0x290010);
+	mdelay(5);
+        snprintf(buf, sizeof(buf), "\t0x%x value is 0x%x\n", addr, readl(0x290018));
+        fastboot_info(buf);
+        fastboot_okay("");
+}
+
+static void cmd_rpm_writel(const char *arg, void *data, unsigned sz)
+{
+        uint32_t addr = hex2unsigned(arg);
+        arg += 9;
+        uint32_t val = hex2unsigned(arg);
+        writel(val,0x290018);
+	writel(addr,0x290014);
+	writel(2,0x290010);
+        fastboot_okay("");
+}
+
 static void cmd_readl(const char *arg, void *data, unsigned sz)
 {
 	char buf[1024];
@@ -439,4 +462,7 @@ void fastboot_rpm_register_commands(void) {
 	fastboot_register("oem ps-hold",cmd_reboot_pshold);
         fastboot_register("oem readl",cmd_readl);
         fastboot_register("oem writel",cmd_writel);
+        fastboot_register("oem rpm-readl",cmd_rpm_readl);
+        fastboot_register("oem rpm-writel",cmd_rpm_writel);
+
 }
