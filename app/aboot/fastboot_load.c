@@ -10,6 +10,10 @@
 #include <reboot.h>
 #include <lib/elf.h>
 
+#include <spmi_v2.h>
+#include <pm8x41.h>
+#include <pm8x41_hw.h>
+
 #define PBL_SIZE (98304)
 #define PBL_BASE_ADDR (0x100000)
 #define PBL_COPY_ADDR (0x08080000) //0x8068000 DOESN'T WORK
@@ -166,6 +170,31 @@ static void process_elf_blob(const void *start, size_t len) {
 
 exit:
     elf_close_handle(&elf);
+}
+
+void cmd_watchdog(void) {
+    fastboot_info("Causing a dog bite...");
+
+    pm8994_reset_configure(1); //PON_PSHOLD_WARM_RESET
+
+//#if 0
+//Attempted to write to cpu start addr, doesn't work
+	writel(0x80000000,0x0b110004);
+	writel(0x80000000,0x0b110008);
+	writel(0x80000000,0x0b010004);
+	writel(0x80000000,0x0b010008);
+
+//#endif
+
+    *(uint32 *)(0x4AA004) &= 0x80000006;
+    *(uint32 *)(0x4AA00C) = *(uint32 *)(0x4AA00C) & 0x80000000 | 32;
+	while ( (*(uint32 *)(0x4AA00C) & 0x80000000) == 0 );
+	*(uint32 *)(0x4AA010) = *(uint32 *)(0x4AA010) & 0x80000000 | 32;
+	while ( (*(uint32 *)(0x4AA010) & 0x80000000) == 0 );
+	*(uint32 *)(0x4AA004) = *(uint32 *)(0x4AA004) & 0x80000006 | 1;
+	*(uint32 *)(0x4AA004) = *(uint32 *)(0x4AA004) & 7 | 0x80000000;
+
+	*(uint32 *)(0x4AA000) = 1;
 }
 
 void cmd_boot_edl(void) {
@@ -457,4 +486,5 @@ void fastboot_rpm_register_commands(void) {
 	fastboot_register("oem lk-reboot-recovery",cmd_reboot_reason_recovery);
 	fastboot_register("oem lk-reboot-bootloader",cmd_reboot_reason_fastboot);
 	fastboot_register("oem lk-reboot-normal",cmd_reboot_reason_normal);
+	fastboot_register("oem wdg",cmd_watchdog);
 }
