@@ -203,11 +203,18 @@ void cmd_watchdog(void) {
 //	writel(0x40,0x01815004);
 //    writel(0x80000000,0x01940000);
 
+    snprintf(buf, sizeof(buf), "sysdbg qsee entry %p", readl(0x00223B28));
+    fastboot_info(buf);
+
+    snprintf(buf, sizeof(buf), "qsee arch %d", readl(0x00223B30));
+    fastboot_info(buf);
+
+    writel(0x100000,0x00223B28); //Write the address you wanna jump here
 
     snprintf(buf, sizeof(buf), "TCSR_RESET_DEBUG_SW_ENTRY %p", readl(0x01940000));
     fastboot_info(buf);
 
-    *(uint32 *)(0x01940000) = 0x200000;
+//    *(uint32 *)(0x01940000) = 0x200000;
 
     *(uint32 *)(0x01940000) |= 1;
 
