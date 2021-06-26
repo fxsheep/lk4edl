@@ -209,12 +209,16 @@ void cmd_watchdog(void) {
     snprintf(buf, sizeof(buf), "qsee arch %d", readl(0x00223B30));
     fastboot_info(buf);
 
-    writel(0x100000,0x00223B28); //Write the address you wanna jump here
+    writel(0x80100000,0x00223B28); //Write the address you wanna jump here
+
+//Demo code that drops PS_HOLD (reboot)
+    writel(0xE59F0004,0x80100000);
+    writel(0xE3A01000,0x80100004);
+    writel(0xE5801000,0x80100008);	
+    writel(0x4AB000,0x8010000C); 
 
     snprintf(buf, sizeof(buf), "TCSR_RESET_DEBUG_SW_ENTRY %p", readl(0x01940000));
     fastboot_info(buf);
-
-//    *(uint32 *)(0x01940000) = 0x200000;
 
     *(uint32 *)(0x01940000) |= 1;
 
