@@ -173,18 +173,46 @@ exit:
 }
 
 void cmd_watchdog(void) {
+    char buf[1024];
+
+    snprintf(buf, sizeof(buf), "APCS_ALIAS0_BOOT_START_ADDR_SEC %p", readl(0x0b110004));
+    fastboot_info(buf);
+    snprintf(buf, sizeof(buf), "APCS_ALIAS0_BOOT_START_ADDR_NSEC %p", readl(0x0b110008));
+    fastboot_info(buf);
+    snprintf(buf, sizeof(buf), "APCS_ALIAS1_BOOT_START_ADDR_SEC %p", readl(0x0b010004));
+    fastboot_info(buf);
+    snprintf(buf, sizeof(buf), "APCS_ALIAS1_BOOT_START_ADDR_NSEC %p", readl(0x0b010008));
+    fastboot_info(buf);
+
+
     fastboot_info("Causing a dog bite...");
 
-    pm8994_reset_configure(1); //PON_PSHOLD_WARM_RESET
+//    pm8994_reset_configure(1); //PON_PSHOLD_WARM_RESET
 
-//#if 0
+#if 0
 //Attempted to write to cpu start addr, doesn't work
 	writel(0x80000000,0x0b110004);
 	writel(0x80000000,0x0b110008);
 	writel(0x80000000,0x0b010004);
 	writel(0x80000000,0x0b010008);
 
-//#endif
+#endif
+    writel(0x70100,0x01814000);
+//	*(uint32 *)(0x01829004) |= 1;
+//	*(uint32 *)(0x01829008) |= 1;
+//	writel(0x40,0x01815004);
+//    writel(0x80000000,0x01940000);
+
+
+    snprintf(buf, sizeof(buf), "TCSR_RESET_DEBUG_SW_ENTRY %p", readl(0x01940000));
+    fastboot_info(buf);
+
+    *(uint32 *)(0x01940000) = 0x200000;
+
+    *(uint32 *)(0x01940000) |= 1;
+
+    snprintf(buf, sizeof(buf), "TCSR_RESET_DEBUG_SW_ENTRY %p", readl(0x01940000));
+    fastboot_info(buf);
 
     *(uint32 *)(0x4AA004) &= 0x80000006;
     *(uint32 *)(0x4AA00C) = *(uint32 *)(0x4AA00C) & 0x80000000 | 32;
@@ -193,8 +221,9 @@ void cmd_watchdog(void) {
 	while ( (*(uint32 *)(0x4AA010) & 0x80000000) == 0 );
 	*(uint32 *)(0x4AA004) = *(uint32 *)(0x4AA004) & 0x80000006 | 1;
 	*(uint32 *)(0x4AA004) = *(uint32 *)(0x4AA004) & 7 | 0x80000000;
-
 	*(uint32 *)(0x4AA000) = 1;
+
+
 }
 
 void cmd_boot_edl(void) {
