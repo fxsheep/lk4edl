@@ -106,6 +106,9 @@
 void enable_secondary_core();
 #endif
 
+#define RPM_CODE_RAM_ADDR	0x200000
+#define RPM_CODE_RAM_SIZE	0x24000
+
 extern  bool target_use_signed_kernel(void);
 extern void platform_uninit(void);
 extern void target_uninit(void);
@@ -2826,10 +2829,20 @@ void cmd_flash_mmc_img(const char *arg, void *data, unsigned sz)
 
 	if (pname)
 	{
+		if (!strcmp(pname, "loadrpm"))
+		{
+			if (sz > RPM_CODE_RAM_SIZE) {
+				fastboot_info("Image too big");
+				fastboot_fail("");
+			}
+			memcpy(RPM_CODE_RAM_ADDR, data, sz);
+			fastboot_info("RPM load success");
+			fastboot_okay("");
+		}
 
-                if (!strcmp(pname, "loadelf"))
-                {
-                        dprintf(INFO, "Attempt to load an ELF image.\n");
+		if (!strcmp(pname, "loadelf"))
+		{
+            dprintf(INFO, "Attempt to load an ELF image.\n");
 			status_t st = elf_open_handle_memory(&elf, data, sz);
 			if (st < 0) {
 				dprintf(CRITICAL, "unable to open elf handle\n");
