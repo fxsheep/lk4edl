@@ -121,9 +121,7 @@ void (*cpu_on_ep) (void);
 
 void target_early_init(void)
 {
-#if WITH_DEBUG_UART
 	uart_dm_init(2, 0, BLSP1_UART1_BASE);
-#endif
 }
 
 static void set_sdc_power_ctrl()
